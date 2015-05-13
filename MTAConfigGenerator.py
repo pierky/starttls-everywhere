@@ -150,11 +150,11 @@ class PostfixConfigGenerator(MTAConfigGenerator):
       self.ca_file)
 
 if __name__ == "__main__":
-  import ConfigParser
+  import DefsParser
   if len(sys.argv) != 3:
     print "Usage: MTAConfigGenerator starttls-everywhere.json /etc/postfix"
     sys.exit(1)
-  c = ConfigParser.Config(sys.argv[1])
+  c = DefsParser.Defs(sys.argv[1])
   postfix_dir = sys.argv[2]
   pcgen = PostfixConfigGenerator(c, postfix_dir, fixup=True)
   print "Done."

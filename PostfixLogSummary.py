@@ -6,7 +6,7 @@ import re
 import sys
 import time
 
-import ConfigParser
+import DefsParser
 
 TIME_FORMAT = "%b %d %H:%M:%S"
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
   arg_parser.add_argument('-c', action="store_true", dest="cron", default=False)
   args = arg_parser.parse_args()
 
-  config = ConfigParser.Config("starttls-everywhere.json")
+  config = DefsParser.Defs("starttls-everywhere.json")
 
   last_timestamp_processed = 0
   timestamp_file = '/tmp/starttls-everywhere-last-timestamp-processed.txt'

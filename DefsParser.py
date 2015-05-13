@@ -31,7 +31,7 @@ def looks_like_a_domain(s):
   except:
     return False
 
-class Config:
+class Defs:
   def __init__(self, cfg_file_name = "config.json"):
     f = open(cfg_file_name)
     self.cfg = json.loads(f.read())
@@ -111,4 +111,4 @@ class Config:
       yield (d, policies)
 
 if __name__ == "__main__":
-  c = Config()
+  c = Defs()
