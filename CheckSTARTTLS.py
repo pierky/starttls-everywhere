@@ -181,7 +181,7 @@ if __name__ == '__main__':
         min_version = min_tls_version(domain)
         suffix_match = "." + suffix
         config["acceptable-mxs"][domain] = {
-          "accept-mx-domains": [suffix_match]
+          "accept-mx-hostnames": [suffix_match]
         }
         config["tls-policies"][suffix_match] = {
           "require-tls": True,

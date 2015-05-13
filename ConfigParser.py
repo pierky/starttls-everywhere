@@ -79,9 +79,9 @@ class Config:
         self.acceptable_mxs = val
         self.mx_domain_to_address_domains = collections.defaultdict(set)
         for address_domain, properties in self.acceptable_mxs.items():
-          mx_list = properties["accept-mx-domains"]
+          mx_list = properties["accept-mx-hostnames"]
           if len(mx_list) > 1:
-            print "Lists of multiple accept-mx-domains not yet supported, skipping ", address_domain
+            print "Lists of multiple accept-mx-hostnames not yet supported, skipping ", address_domain
           mx_domain = mx_list[0]
           self.mx_domain_to_address_domains[mx_domain].add(address_domain)
         pass

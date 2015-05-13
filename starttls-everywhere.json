@@ -1,127 +1,127 @@
 {
   "acceptable-mxs": {
     "163.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".163.com"
       ]
     }, 
     "aol.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".aol.com"
       ]
     }, 
     "craigslist.org": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".craigslist.org"
       ]
     }, 
     "gmail.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".google.com"
       ]
     }, 
     "hotmail.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".outlook.com"
       ]
     }, 
     "icloud.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".icloud.com"
       ]
     }, 
     "live.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".outlook.com"
       ]
     }, 
     "mac.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".icloud.com"
       ]
     }, 
     "me.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".icloud.com"
       ]
     }, 
     "msn.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".outlook.com"
       ]
     }, 
     "naver.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".naver.com"
       ]
     }, 
     "outlook.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".outlook.com"
       ]
     }, 
     "qq.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".qq.com"
       ]
     }, 
     "rocketmail.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".yahoo.com"
       ]
     }, 
     "rogers.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".yahoo.com"
       ]
     }, 
     "salesforce.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".psmtp.com"
       ]
     }, 
     "sbcglobal.net": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".yahoo.com"
       ]
     }, 
     "shaw.ca": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".shaw.ca"
       ]
     }, 
     "sympatico.ca": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".outlook.com"
       ]
     }, 
     "t-online.de": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".t-online.de"
       ]
     }, 
     "wp.pl": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".wp.pl"
       ]
     }, 
     "yahoo.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".yahoo.com"
       ]
     }, 
     "yahoogroups.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".yahoo.com"
       ]
     }, 
     "yandex.ru": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".yandex.ru"
       ]
     }, 
     "ymail.com": {
-      "accept-mx-domains": [
+      "accept-mx-hostnames": [
         ".yahoo.com"
       ]
     }

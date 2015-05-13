@@ -94,13 +94,13 @@ The basic file format will be JSON with comments (http://blog.getify.com/json-co
       // address domain, to protect against DNS spoofing.
       "acceptable-mxs": {
         "yahoo.com": {
-          "accept-mx-domains": ["*.yahoodns.net"]
+          "accept-mx-hostnames": ["*.yahoodns.net"]
         }
         "gmail.com": {
-          "accept-mx-domains": ["*.google.com"]
+          "accept-mx-hostnames": ["*.google.com"]
         }
         "eff.org": {
-          "accept-mx-domains": ["*.eff.org"]
+          "accept-mx-hostnames": ["*.eff.org"]
         }
       }
     }
@@ -122,13 +122,13 @@ Config-generator should attempt to fetch the configuration file daily and transf
 
 The _address-domains_ field maps from mail domains (the part of an address after the "@") onto a list of properties for that domain. Matching of mail domains is on an exact-match basis, not a subdomain basis. For instance, eff.org would be listed separately from lists.eff.org in the _address-domains_ section.
 
-Currently the only property defined for _address-domains_ is _accept-mx-domains_, a list. If an MX lookup for a listed address domain returns a hostname that is not a subdomain of one of the domains listed in the _accept-mx-domains_ property, the MTA should fail delivery or log an advisory failure, as appropriate. Matching of MX hostnames against the _accept-mx-domains_ list is on a subdomain basis. For instance, if an MX record for yahoo.com lists mta7.am0.yahoodns.net, and the _accept-mx-domains_ property for yahoo.com is ["yahoodns.net"], that should be considered a match. All domains listed in any _accept-mx-domains_ list must correspond to an exactly matching field in the _mx-domains_ config section.
+Currently the only property defined for _address-domains_ is _accept-mx-hostnames_, a list. If an MX lookup for a listed address domain returns a hostname that is not a subdomain of one of the domains listed in the _accept-mx-hostnames_ property, the MTA should fail delivery or log an advisory failure, as appropriate. Matching of MX hostnames against the _accept-mx-hostnames_ list is on a subdomain basis. For instance, if an MX record for yahoo.com lists mta7.am0.yahoodns.net, and the _accept-mx-hostnames_ property for yahoo.com is ["yahoodns.net"], that should be considered a match. All domains listed in any _accept-mx-hostnames_ list must correspond to an exactly matching field in the _mx-domains_ config section.
 
-The _accept-mx-domains_ mechanism partially solves the problem of DNS MITM. It doesn't completely solve the problem, since an attacker might somehow control a different hostname under an acceptable domain, e.g. evil.yahoodns.net. But it strikes a balance between improving security and allowing mail operators to change configuration as needed. Some mail operators delegate their MX handling to a third-party provider (i.e. Google Apps for Your Domain). If those operators are included in STARTTLS Everywhere and wish to change providers, they will have to first send an update to their _accept-mx-domains_ to include their new provider.
+The _accept-mx-hostnames_ mechanism partially solves the problem of DNS MITM. It doesn't completely solve the problem, since an attacker might somehow control a different hostname under an acceptable domain, e.g. evil.yahoodns.net. But it strikes a balance between improving security and allowing mail operators to change configuration as needed. Some mail operators delegate their MX handling to a third-party provider (i.e. Google Apps for Your Domain). If those operators are included in STARTTLS Everywhere and wish to change providers, they will have to first send an update to their _accept-mx-hostnames_ to include their new provider.
 
 **mx-domains**
 
-The keys of this section are MX domains as described above for the _accept-mx-domains_ property. Each _mx-domain_ entry must be an exact match with an entry in one of the _accept-mx-domains_ lists provided. No _mx-domain_can be a subdomain of any other _mx-domain_in the configuration file. Fields in this section specify minimum security requirements that should be applied when connecting to any MX hostname that is a subdomain of the specified _mx-domain_.
+The keys of this section are MX domains as described above for the _accept-mx-hostnames_ property. Each _mx-domain_ entry must be an exact match with an entry in one of the _accept-mx-hostnames_ lists provided. No _mx-domain_can be a subdomain of any other _mx-domain_in the configuration file. Fields in this section specify minimum security requirements that should be applied when connecting to any MX hostname that is a subdomain of the specified _mx-domain_.
 
 Implicitly each _mx-domain_ listed has a property _require-tls: true_. MX domains that do not support TLS will not be listed. The only required property is _enforce-mode_, which must be either _log-only_ or _enforce_. If _enforce-mode_ is _log-only_, the generated configs will not stop mail delivery on policy failures, but will produce logging information.
 

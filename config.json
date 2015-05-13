@@ -10,7 +10,7 @@
   },
   "acceptable-mxs": {
     "valid-example-recipient.com": {
-      "accept-mx-domains": [ ".valid-example-recipient.com" ]
+      "accept-mx-hostnames": [ ".valid-example-recipient.com" ]
     }
   }
 
