@@ -3,7 +3,7 @@ import time
 import urllib2
 from ConfigParser import SafeConfigParser
 
-from Errors import ErrorTLDsListUnavailable
+from Errors import TLDsListUnavailableError
 
 class STARTTLSEverywhereConfig(SafeConfigParser):
   def __init__(self):
@@ -23,7 +23,7 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
       "ca_file": "%{capath}s"
     })
 
-    self.read("starttlseverywhere.cfg")
+    self.read("distrib/starttls-everywhere.cfg")
 
   def get_tlds_list(self):
     """Return official TLDs list (lower-case).
