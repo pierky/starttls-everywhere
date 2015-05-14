@@ -3,136 +3,285 @@
 import sys
 import string
 import os, os.path
+import argparse
 
 from Config import Config
+from Errors import *
 
-def parse_line(line_data):
-  """
-  Return the (line number, left hand side, right hand side) of a stripped
-  postfix config line.
+class MTAConfigFile():
+  def __init__(self, path):
+    self.path = path
 
-  Lines are like:
-  smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
-  """
-  num,line = line_data
-  left, sep, right = line.partition("=")
-  if not sep:
-    return None
-  return (num, left.strip(), right.strip())
+    self.comment = "#"
+    self.var_val_separator = "="
 
-class MTAConfigGenerator:
-  def __init__(self, policy_config):
-    self.policy_config = policy_config
+    self.orig_data = ""
+    self.lines = []
+    self.additions = []
+    self.deletions = []
+    self.new_data = ""
+    self.changed = False
 
-class ExistingConfigError(ValueError): pass
+  def load(self):
+    """Load the configuration file and reset instance's properties"""
 
-class PostfixConfigGenerator(MTAConfigGenerator):
-  def __init__(self, policy_config, postfix_dir, fixup=False):
-    self.fixup = fixup
-    self.postfix_dir = postfix_dir
-    self.postfix_cf_file = self.find_postfix_cf()
-    if not os.access(self.postfix_cf_file, os.W_OK):
-      raise Exception("Can't write to %s, please re-run as root."
-        % self.postfix_cf_file)
-    self.policy_file = os.path.join(postfix_dir,
-                                    Config.get("postfix","policy_file"))
-    self.ca_file = os.path.join(postfix_dir, Config.get("postfix","ca_file"))
-    MTAConfigGenerator.__init__(self, policy_config)
-    self.wrangle_existing_config()
-    self.set_domainwise_tls_policies()
-    self.update_CAfile()
-    os.system("sudo service postfix reload")
+    f = open(self.path, "r")
+    self.orig_data = f.read()
+    f.close()
+
+    self.lines = self.orig_data.split("\n")
+
+    # list of lines that need to be added
+    self.additions = []
+
+    # list of indices of lines that need to be removed
+    self.deletions = []
+
+    self.new_data = ""
+    self.changed = False
+
+  def parse_line(self, line_data):
+    """
+    Return the (line number, left hand side, right hand side) of a config 
+    line.
+
+    Lines are like:
+    var = val
+    smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
+    var
+    mynetworks = 127.0.0.0/8
+     [::ffff:127.0.0.0]/104
+     [::1]/128
+    """
+    num,line = line_data
+    left, sep, right = line.partition(self.var_val_separator)
+    if not sep:
+      return (num, left.rstrip(), None)
+    return (num, left.strip(), right.strip())
 
   def ensure_cf_var(self, var, ideal, also_acceptable):
     """
-    Ensure that existing postfix config @var is in the list of @acceptable
+    Ensure that existing config @var is in the list of @acceptable
     values; if not, set it to the ideal value.
+
+    Performed actions:
+    - add new lines to self.additions;
+    - add removed lines indexes to self.deletions;
+    - set self.changed = True when changes are needed
     """
     acceptable = [ideal] + also_acceptable
 
-    l = [(num,line) for num,line in enumerate(self.cf) if line.startswith(var)]
+    l = [(num,line) for num,line in enumerate(self.lines) if line.startswith(var)]
     if not any(l):
-      self.additions.append(var + " = " + ideal)
+      self.additions.append(var + self.var_val_separator + ideal)
+      self.changed = True
     else:
-      values = map(parse_line, l)
-      if len(set(values)) > 1:
-        if self.fixup:
-          conflicting_lines = [num for num,_var,val in values]
-          self.deletions.extend(conflicting_lines)
-          self.additions.append(var + " = " + ideal)
-        else:
-          raise ExistingConfigError, "Conflicting existing config values " + `l`
-      val = values[0][2]
-      if val not in acceptable:
-        if self.fixup:
-          self.deletions.append(values[0][0])
-          self.additions.append(var + " = " + ideal)
-        else:
-          raise ExistingConfigError, "Existing config has %s=%s"%(var,val)
+      values = map(self.parse_line, l)
 
-  def wrangle_existing_config(self):
+      if len(set(values)) > 1:
+        conflicting_lines = [num for num,_,val in values]
+        self.deletions.extend(conflicting_lines)
+        self.additions.append(var + self.var_val_separator + ideal)
+        self.changed = True
+
+      val = values[0][2]
+
+      if val not in acceptable:
+        self.deletions.append(values[0][0])
+        self.additions.append(var + self.var_val_separator + ideal)
+        self.changed = True
+
+  def build_new(self):
     """
-    Try to ensure/mutate that the config file is in a sane state.
-    Fixup means we'll delete existing lines if necessary to get there.
+    Build the content of the new configuration file
+
+    Raise: BuildUnchangedConfigFileError
+
+    Return the content itself.
     """
-    self.additions = []
-    self.deletions = []
-    self.fn = self.find_postfix_cf()
-    self.raw_cf = open(self.fn).readlines()
-    self.cf = map(string.strip, self.raw_cf)
-    #self.cf = [line for line in cf if line and not line.startswith("#")]
+    
+    if not self.changed:
+      raise BuildUnchangedConfigFileError("Can't build an unchanged file")
+
+    if len(self.additions) > 0:
+      new_lines = [self.comment, self.comment + " New config lines added by STARTTLS Everywhere",
+                    self.comment]
+      new_lines.extend(self.additions)
+      new_cf_lines = "\n".join(new_lines) + "\n"
+    else:
+      new_cf_lines = ""
+
+    self.new_data = ""
+    for num, line in enumerate(self.lines):
+      if num in self.deletions:
+        self.new_data += self.comment + line + " " + self.comment + " Line removed by STARTTLS Everywhere\n"
+      else:
+        self.new_data += line + "\n"
+
+    if new_cf_lines != "":
+      self.new_data += "\n" + new_cf_lines
+
+    return self.new_data
+
+  def save(self):
+    """
+    Save the content of the new configuration file, then reload it to 
+    reinitialize it
+    """
+
+    if self.new_data == "":
+      return
+    f = open(self.path,"w")
+    f.write(self.new_data)
+    f.close
+
+    self.load()
+
+class PostfixConfigFile(MTAConfigFile):
+  def __init__(self,path):
+    MTAConfigFile.__init__(self,path)
+
+    self.load()
+
+# ----------------------------------------------------------------------------
+
+class MTAConfigGenerator():
+  def __init__(self, policy_config, fixup=False):
+    self.policy_config = policy_config
+    self.fixup = fixup
+
+    self.changed_files = []
+
+    self.policy_defs_file = ""
+    self.policy_defs = ""
+
+  def build_defs(self):
+    """
+    Build the new STARTTLS enforcing policy definitions.
+    
+    Must be implemented in child class.
+    """
+
+    self.policy_defs = ""
+
+  def show_defs(self):
+    """Print the new policy definitions."""
+
+    sys.stdout.write(self.policy_defs)
+
+  def update_defs(self):
+    """
+    Update only policy definitions about STARTTLS enforcing
+    without changing MTA's main configuration files.
+    """
+    if self.policy_defs != "":
+      f = open(self.policy_defs_file, "w")
+      f.write(self.policy_defs)
+      f.close()
+
+  def build_general_config(self):
+    """
+    Build changes needed to adapt MTA's main configuration
+    to what's needed by STARTTLS-Everywhere.
+    
+    Return True if changes are needed, otherwise False.
+
+    Files that need to be modified must be added to self.changed_files.
+    
+    Must be implemented in child class.
+    """
+
+    self.changed_files = []
+
+  def show_new_general_config(self):
+    """
+    Print the new configuration for each file that needs
+    to be changed
+    """
+
+    for F in self.changed_files:
+      print("File: {}".format(F.path))
+      sys.stdout.write(F.new_data)
+
+  def fix_general_config(self):
+    """
+    Update only MTA's main configuration files, adapting them
+    to what's needed by STARTTLS-Everywhere
+    """
+    for F in self.changed_files:
+      F.save()
+
+class PostfixConfigGenerator(MTAConfigGenerator):
+
+  def __init__(self, policy_config, postfix_dir, fixup=False):
+    MTAConfigGenerator.__init__(self, policy_config, fixup)
+
+    self.postfix_dir = postfix_dir
+
+    self.postfix_cf_file = \
+      os.path.join(self.postfix_dir, \
+      Config.get("postfix", "main_config_file"))
+
+    self.policy_defs_file = \
+      os.path.join(self.postfix_dir, \
+      Config.get("postfix", "policy_defs_file"))
+
+    if self.fixup:
+      if not os.path.isfile(self.postfix_cf_file):
+        raise FileNotFoundError("Postfix main configuration file "
+                                "not found: {}".format(self.postfix_cf_file))
+
+      if not os.access(self.postfix_cf_file, os.W_OK):
+        raise InsufficientPermissionError("Can't write to %s, "
+                                          "please re-run as root." % \
+                                          self.postfix_cf_file)
+
+    self.ca_file = os.path.join(postfix_dir, Config.get("postfix","ca_file"))
+    
+  def build_general_config(self):
+    """Postfix: main.cf"""
+
+    MTAConfigGenerator.build_general_config(self)
+
+    MainCF = PostfixConfigFile(self.postfix_cf_file)
 
     # Check we're currently accepting inbound STARTTLS sensibly
-    self.ensure_cf_var("smtpd_use_tls", "yes", [])
+    MainCF.ensure_cf_var("smtpd_use_tls", "yes", [])
+
     # Ideally we use it opportunistically in the outbound direction
-    self.ensure_cf_var("smtp_tls_security_level", "may", ["encrypt","dane"])
+    MainCF.ensure_cf_var("smtp_tls_security_level", "may", ["encrypt","dane"])
+
     # Maximum verbosity lets us collect failure information
-    self.ensure_cf_var("smtp_tls_loglevel", "1", [])
+    MainCF.ensure_cf_var("smtp_tls_loglevel", "1", [])
+
     # Inject a reference to our per-domain policy map
-    policy_cf_entry = "texthash:" + self.policy_file
+    policy_cf_entry = "texthash:" + self.policy_defs_file
+    MainCF.ensure_cf_var("smtp_tls_policy_maps", policy_cf_entry, [])
+    MainCF.ensure_cf_var("smtp_tls_CAfile", self.ca_file, [])
 
-    self.ensure_cf_var("smtp_tls_policy_maps", policy_cf_entry, [])
-    self.ensure_cf_var("smtp_tls_CAfile", self.ca_file, [])
+    changed = False
+    if MainCF.changed:
+      MainCF.build_new()
+      changed = True
+      self.changed_files.append(MainCF)
 
-    self.maybe_add_config_lines()
+    return changed
 
-  def maybe_add_config_lines(self):
-    if not self.additions:
-      return
-    if self.fixup:
-      print "Deleting lines:", self.deletions
-    self.additions[:0]=["#","# New config lines added by STARTTLS Everywhere","#"]
-    new_cf_lines = "\n".join(self.additions) + "\n"
-    print "Adding to %s:" % self.fn
-    print new_cf_lines
-    if self.raw_cf[-1][-1] == "\n":     sep = ""
-    else:                               sep = "\n"
+  def build_defs(self):
+    MTAConfigGenerator.build_defs(self)
 
-    self.new_cf = ""
-    for num, line in enumerate(self.raw_cf):
-      if self.fixup and num in self.deletions:
-        self.new_cf += "# Line removed by STARTTLS Everywhere\n# " + line
-      else:
-        self.new_cf += line
-    self.new_cf += sep + new_cf_lines
-
-    f = open(self.fn, "w")
-    f.write(self.new_cf)
-    f.close()
-
-  def find_postfix_cf(self):
-    "Search far and wide for the correct postfix configuration file"
-    return os.path.join(self.postfix_dir, "main.cf")
-
-  def set_domainwise_tls_policies(self):
-    self.policy_lines = []
+    policy_lines = []
     for address_domain, properties in self.policy_config.acceptable_mxs.items():
       mx_list = properties["accept-mx-hostnames"]
       if len(mx_list) > 1:
         print "Lists of multiple accept-mx-hostnames not yet supported, skipping ", address_domain
+
       mx_domain = mx_list[0]
+
       mx_policy = self.policy_config.tls_policies[mx_domain]
+
       entry = address_domain + " encrypt"
+
       if "min-tls-version" in mx_policy:
         if mx_policy["min-tls-version"].lower() == "tlsv1":
           entry += " protocols=!SSLv2:!SSLv3"
@@ -142,22 +291,69 @@ class PostfixConfigGenerator(MTAConfigGenerator):
           entry += " protocols=!SSLv2:!SSLv3:!TLSv1:!TLSv1.1"
         else:
           print mx_policy["min-tls-version"]
-      self.policy_lines.append(entry)
 
-    f = open(self.policy_file, "w")
-    f.write("\n".join(self.policy_lines) + "\n")
-    f.close()
+      policy_lines.append(entry)
 
-  def update_CAfile(self):
-    os.system("cat /usr/share/ca-certificates/mozilla/*.crt > " +
-      self.ca_file)
+    self.policy_defs = "\n".join(policy_lines) + "\n"
 
 if __name__ == "__main__":
+  parser = argparse.ArgumentParser(
+    description="""MTA configuration generator""")
+
+  parser.add_argument("-c", "--cfg", default=Config.default_cfg_path,
+                      help="general configuration file path", metavar="file",
+                      dest="cfg_path")
+
+  parser.add_argument("-m", default="postfix",
+                      help="MTA flavor", choices=["postfix"], 
+                      dest="mta_flavor")
+
+  parser.add_argument("-f", "--fix", action="store_true",
+                      help="fix MTA general configuration; "
+                      "by default, only STARTTLS policies are updated "
+                      "while the main MTA configuration is kept unchanged. "
+                      "Changes are saved only if -s | --save arguments are "
+                      "given.",
+                      dest="fixup")
+
+  parser.add_argument("-s", "--save", action="store_true",
+                      help="really write changes to disk (both for general "
+                      "configuration changes and for policy definitions).",
+                      dest="save")
+
+  parser.add_argument("policy_def", help="JSON policy definitions file",
+                      metavar="policy_defs.json")
+
+  args = parser.parse_args()
+
+  Config.read(args.cfg_path)
+  
   import DefsParser
-  if len(sys.argv) != 3:
-    print "Usage: MTAConfigGenerator starttls-everywhere.json /etc/postfix"
-    sys.exit(1)
-  c = DefsParser.Defs(sys.argv[1])
-  postfix_dir = sys.argv[2]
-  pcgen = PostfixConfigGenerator(c, postfix_dir, fixup=True)
-  print "Done."
+  c = DefsParser.Defs(args.policy_def)
+
+  if args.mta_flavor == "postfix":
+    postfix_dir = Config.get("postfix","cfg_dir")
+    pcgen = PostfixConfigGenerator(c, postfix_dir, fixup=args.fixup)
+
+    if args.fixup:
+      if pcgen.build_general_config():
+
+        if args.save:
+          pcgen.fix_general_config()
+          print("General configuration changes saved!")
+        else:
+          print("General configuration changes are needed:")
+          pcgen.show_new_general_config()
+          print("\nGeneral configuration changes NOT saved: use -s | --save to save them.")
+      else:
+        print("No general configuration changes are needed.")
+    else:
+      pcgen.build_defs()
+      if args.save:
+        pcgen.update_defs()
+        print("Policy definitions updated!")
+      else:
+        pcgen.show_defs()
+        print("\nPolicy definitions NOT updated: use -s | --save to save them.")
+  else:
+    raise ValueError("Unexpected MTA flavor: {}".format(args.mta_flavor))
