@@ -8,6 +8,7 @@ import subprocess
 import re
 import json
 import collections
+import argparse
 
 import dns.resolver
 from M2Crypto import X509
@@ -173,14 +174,26 @@ def collect(mail_domain):
       tls_connect(mx_host, mail_domain)
 
 if __name__ == '__main__':
-  """Consume a target list of domains and output a configuration file for those domains."""
-  if len(sys.argv) < 2:
-    print("Usage: CheckSTARTTLS.py list-of-domains.txt > output.json")
+  parser = argparse.ArgumentParser(
+    description="""Consume a target list of domains and output a \
+    configuration file for those domains.""",
+    usage="""CheckSTARTTLS.py list-of-domains.txt [list-2.txt list-n.txt] > """
+          """output.json""")
+  parser.add_argument("-c", "--cfg", default=Config.default_cfg_path,
+                      help="general configuration file path", metavar="file",
+                      dest="cfg_path")
+  parser.add_argument("inputs", nargs="*", type=argparse.FileType("r"),
+                      default=sys.stdin, 
+                      help="file containing the list of domains to consume; "
+                      "default to stdin")
+  args = parser.parse_args()
+
+  Config.read(args.cfg_path)
 
   config = collections.defaultdict(dict)
 
-  for input in sys.argv[1:]:
-    for domain in open(input).readlines():
+  for input in args.inputs:
+    for domain in input.readlines():
       domain = domain.strip()
       suffix = check_certs(domain)
       if suffix != "":
