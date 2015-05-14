@@ -1,0 +1,2 @@
+class TLDsListUnavailableError(Exception):
+  pass

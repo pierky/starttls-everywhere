@@ -6,6 +6,8 @@ from datetime import datetime
 import string
 import collections
 
+from Config import Config
+
 def parse_timestamp(ts):
   try:
     int(ts)
@@ -15,7 +17,8 @@ def parse_timestamp(ts):
     raise ValueError, "Invalid timestamp integer: " + `ts`
 
 legal = string.letters + string.digits + ".-"
-known_tlds =["com","org","net","biz","info",] # xxx make me from an ICANN list
+known_tlds = Config.get_tlds_list()
+
 def looks_like_a_domain(s):
   "Return true if string looks like a domain, as best we can tell..."
   global known_tlds
@@ -25,8 +28,9 @@ def looks_like_a_domain(s):
     assert all([c in legal for c in domain])
     tld = s.split(".")[-1]
     if tld not in known_tlds:
-      # XXX perform DNS query to determine that this TLD exists
-      pass
+      # hard-fail, since known_tlds is supposed to be 
+      # official and up to date (within tlds_update_interval)
+      return False
     return True
   except:
     return False
@@ -112,3 +116,5 @@ class Defs:
 
 if __name__ == "__main__":
   c = Defs()
+
+

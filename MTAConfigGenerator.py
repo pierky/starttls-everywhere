@@ -4,6 +4,8 @@ import sys
 import string
 import os, os.path
 
+from Config import Config
+
 def parse_line(line_data):
   """
   Return the (line number, left hand side, right hand side) of a stripped
@@ -32,8 +34,9 @@ class PostfixConfigGenerator(MTAConfigGenerator):
     if not os.access(self.postfix_cf_file, os.W_OK):
       raise Exception("Can't write to %s, please re-run as root."
         % self.postfix_cf_file)
-    self.policy_file = os.path.join(postfix_dir, "starttls_everywhere_policy")
-    self.ca_file = os.path.join(postfix_dir, "starttls_everywhere_CAfile")
+    self.policy_file = os.path.join(postfix_dir,
+                                    Config.get("postfix","policy_file"))
+    self.ca_file = os.path.join(postfix_dir, Config.get("postfix","ca_file"))
     MTAConfigGenerator.__init__(self, policy_config)
     self.wrangle_existing_config()
     self.set_domainwise_tls_policies()

@@ -13,8 +13,10 @@ import dns.resolver
 from M2Crypto import X509
 from publicsuffix import PublicSuffixList
 
+from Config import Config
+
 public_suffix_list = PublicSuffixList()
-CERTS_OBSERVED = 'certs-observed'
+CERTS_OBSERVED = Config.get("general", "certs-observed")
 
 def mkdirp(path):
     try:
@@ -55,10 +57,11 @@ def tls_connect(mx_host, mail_domain):
     # so shell out to openssl.
     try:
       output = subprocess.check_output(
-          """openssl s_client \
-             -starttls smtp -connect %s:25 -showcerts </dev/null \
+          """{openssl_path} s_client \
+             -starttls smtp -connect {mx_host}:25 -showcerts </dev/null \
              2>/dev/null
-             """ % mx_host, shell = True)
+             """.format(openssl_path=Config.get("general","openssl_path"),
+                        mx_host=mx_host), shell = True)
     except subprocess.CalledProcessError:
       print "Failed s_client"
       return
@@ -78,10 +81,13 @@ def valid_cert(filename):
   try:
     # The file contains both the leaf cert and any intermediates, so we pass it
     # as both the cert to validate and as the "untrusted" chain.
-    output = subprocess.check_output("""openssl verify -CApath /home/jsha/mozilla/ -purpose sslserver \
-              -untrusted "%s" \
-              "%s"
-             """ % (filename, filename), shell = True)
+    output = subprocess.check_output(
+        """{openssl_path} verify -CApath {capath} \
+           -purpose sslserver -untrusted "{filename}" \
+           "{filename}"
+           """.format(openssl_path=Config.get("general","openssl_path"),
+                      capath=Config.get("general","capath"),
+                      filename=filename), shell = True)
     return True
   except subprocess.CalledProcessError:
     return False
