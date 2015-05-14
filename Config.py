@@ -1,7 +1,7 @@
 import os
 import time
 import urllib2
-from ConfigParser import SafeConfigParser, NoOptionError
+from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
 
 from Errors import TLDsListUnavailableError
 
@@ -10,6 +10,8 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
 
   custom_defaults = {
     "postfix": {
+      "cfg_dir": "/etc/postfix",
+      "ca_file": "%(capath)s",
       "main_config_file": "main.cf",
       "policy_defs_file": "starttls-everywhere"
     }
@@ -35,6 +37,11 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
   def get(self,section,option):
     try:
       return SafeConfigParser.get(self,section,option)
+    except NoSectionError:
+      if section in STARTTLSEverywhereConfig.custom_defaults:
+        if option in STARTTLSEverywhereConfig.custom_defaults[section]:
+          return STARTTLSEverywhereConfig.custom_defaults[section][option]
+      raise
     except NoOptionError:
       if section in STARTTLSEverywhereConfig.custom_defaults:
         if option in STARTTLSEverywhereConfig.custom_defaults[section]:
