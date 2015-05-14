@@ -1,11 +1,20 @@
 import os
 import time
 import urllib2
-from ConfigParser import SafeConfigParser
+from ConfigParser import SafeConfigParser, NoOptionError
 
 from Errors import TLDsListUnavailableError
 
 class STARTTLSEverywhereConfig(SafeConfigParser):
+  default_cfg_path = "/etc/starttls-everywhere.cfg"
+
+  custom_defaults = {
+    "postfix": {
+      "main_config_file": "main.cf",
+      "policy_defs_file": "starttls-everywhere"
+    }
+  }
+
   def __init__(self):
     SafeConfigParser.__init__(self, {
       # general
@@ -20,10 +29,19 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
       # postfix
 
       "policy_file": "starttls_everywhere_policy",
-      "ca_file": "%{capath}s"
+      "ca_file": "%(capath)s"
     })
 
-    self.read("distrib/starttls-everywhere.cfg")
+  def get(self,section,option):
+    try:
+      return SafeConfigParser.get(self,section,option)
+    except NoOptionError:
+      if section in STARTTLSEverywhereConfig.custom_defaults:
+        if option in STARTTLSEverywhereConfig.custom_defaults[section]:
+          return STARTTLSEverywhereConfig.custom_defaults[section][option]
+      raise
+    except:
+      raise
 
   def get_tlds_list(self):
     """Return official TLDs list (lower-case).
