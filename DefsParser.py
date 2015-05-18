@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 import string
 import collections
+import argparse
 
 from Config import Config
 
@@ -17,7 +18,7 @@ def parse_timestamp(ts):
     raise ValueError, "Invalid timestamp integer: " + `ts`
 
 legal = string.letters + string.digits + ".-"
-known_tlds = Config.get_tlds_list()
+known_tlds = []
 
 def looks_like_a_domain(s):
   "Return true if string looks like a domain, as best we can tell..."
@@ -115,6 +116,27 @@ class Defs:
       yield (d, policies)
 
 if __name__ == "__main__":
-  c = Defs()
+  parser = argparse.ArgumentParser(
+    description="STARTTLS policy definitions validator")
+
+  parser.add_argument("-c", "--cfg", default=Config.default_cfg_path,
+                      help="general configuration file path", metavar="file",
+                      dest="cfg_path")
+
+  parser.add_argument("policy_def", help="JSON policy definitions file",
+                      metavar="policy_defs.json")
+
+  args = parser.parse_args()
+
+  Config.read(args.cfg_path)
+
+  known_tlds = Config.get_tlds_list()
+
+  try:
+    c = Defs(args.policy_def)
+  except:
+    print("Validation failure")
+    raise
+  print("Validation OK")
 
 
