@@ -236,7 +236,9 @@ class PostfixConfigGenerator(MTAConfigGenerator):
                                           "please re-run as root." % \
                                           self.postfix_cf_file)
 
-    self.ca_file = os.path.join(postfix_dir, Config.get("postfix","ca_file"))
+    self.ca_file = Config.get("postfix","ca_file",default="")
+
+    self.ca_path = Config.get("postfix","ca_path")
     
   def build_general_config(self):
     """Postfix: main.cf"""
@@ -257,7 +259,11 @@ class PostfixConfigGenerator(MTAConfigGenerator):
     # Inject a reference to our per-domain policy map
     policy_cf_entry = "texthash:" + self.policy_defs_file
     MainCF.ensure_cf_var("smtp_tls_policy_maps", policy_cf_entry, [])
-    MainCF.ensure_cf_var("smtp_tls_CAfile", self.ca_file, [])
+
+    if self.ca_file != "":
+      MainCF.ensure_cf_var("smtp_tls_CAfile", self.ca_file, [])
+    if self.ca_path != "":
+      MainCF.ensure_cf_var("smtp_tls_CApath", self.ca_path, [])
 
     changed = False
     if MainCF.changed:
