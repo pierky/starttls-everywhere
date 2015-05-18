@@ -11,7 +11,7 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
   custom_defaults = {
     "postfix": {
       "cfg_dir": "/etc/postfix",
-      "ca_file": "%(capath)s",
+      "ca_path": "%(capath)s",
       "main_config_file": "main.cf",
       "policy_defs_file": "starttls-everywhere"
     }
@@ -26,26 +26,23 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
       "openssl_path": "openssl",
       "capath": "/etc/ssl/certs/",
       "tlds_update_interval": "86400",
-      "tlds_url": "https://data.iana.org/TLD/tlds-alpha-by-domain.txt",
+      "tlds_url": "https://data.iana.org/TLD/tlds-alpha-by-domain.txt"
+      })
 
-      # postfix
-
-      "policy_file": "starttls_everywhere_policy",
-      "ca_file": "%(capath)s"
-    })
-
-  def get(self,section,option):
+  def get(self,section,option,default=None):
     try:
       return SafeConfigParser.get(self,section,option)
-    except NoSectionError:
+    except (NoSectionError, NoOptionError) as e:
+      if default is not None:
+        return default
+
       if section in STARTTLSEverywhereConfig.custom_defaults:
+        if isinstance(e,NoSectionError):
+          self.add_section(section)
+
         if option in STARTTLSEverywhereConfig.custom_defaults[section]:
-          return STARTTLSEverywhereConfig.custom_defaults[section][option]
-      raise
-    except NoOptionError:
-      if section in STARTTLSEverywhereConfig.custom_defaults:
-        if option in STARTTLSEverywhereConfig.custom_defaults[section]:
-          return STARTTLSEverywhereConfig.custom_defaults[section][option]
+          return SafeConfigParser.get(self,section,option,vars={
+            option: STARTTLSEverywhereConfig.custom_defaults[section][option]})
       raise
     except:
       raise
