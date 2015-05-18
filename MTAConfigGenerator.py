@@ -4,6 +4,8 @@ import sys
 import string
 import os, os.path
 import argparse
+import subprocess
+from tempfile import NamedTemporaryFile
 
 from Config import Config
 from Errors import *
@@ -171,7 +173,7 @@ class MTAConfigGenerator():
 
   def update_defs(self):
     """
-    Update only policy definitions about STARTTLS enforcing
+    Update STARTTLS enforcing policy definitions only
     without changing MTA's main configuration files.
     """
     if self.policy_defs != "":
@@ -210,6 +212,33 @@ class MTAConfigGenerator():
     """
     for F in self.changed_files:
       F.save()
+
+  def show_new_general_config_diff(self):
+    """
+    Show a diff between current and new MTA's general config.
+
+    It uses the command line provided in STARTTLS-Everywhere
+    configuration.
+    """
+
+    diff_tpl = Config.get("general","diff_cmd")
+
+    for F in self.changed_files:
+      if F.changed:
+
+        temp_f = NamedTemporaryFile(delete=False)
+        temp_f.write(F.new_data)
+        temp_f.close()
+
+        diff_cmd = diff_tpl.format(old=F.path, new=temp_f.name)
+
+        print("Differences between {old} and "
+        "the new configuration follow:\n\n"
+        "\t{cmd}\n\n".format(old=F.path, cmd=diff_cmd))
+
+        proc = subprocess.Popen(diff_cmd.split(" "))
+        proc.communicate()
+        os.remove(temp_f.name)
 
 class PostfixConfigGenerator(MTAConfigGenerator):
 
@@ -348,8 +377,17 @@ if __name__ == "__main__":
           pcgen.fix_general_config()
           print("General configuration changes saved!")
         else:
-          print("General configuration changes are needed:")
-          pcgen.show_new_general_config()
+          print("General configuration changes are needed.")
+
+          try:
+            pcgen.show_new_general_config_diff()
+          except OSError:
+            print("Error while showing configuration differences. "
+            "The whole new configuration follows:")
+            pcgen.show_new_general_config()
+          except:
+            raise
+
           print("\nGeneral configuration changes NOT saved: use -s | --save to save them.")
       else:
         print("No general configuration changes are needed.")

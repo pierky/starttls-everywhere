@@ -26,7 +26,8 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
       "openssl_path": "openssl",
       "capath": "/etc/ssl/certs/",
       "tlds_update_interval": "86400",
-      "tlds_url": "https://data.iana.org/TLD/tlds-alpha-by-domain.txt"
+      "tlds_url": "https://data.iana.org/TLD/tlds-alpha-by-domain.txt",
+      "diff_cmd": "diff -y {new} {old}",
       })
 
   def get(self,section,option,default=None):
