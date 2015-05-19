@@ -1,0 +1,59 @@
+Just a draft, still thinking over it...
+
+Policy:
+{
+	// optional - default: none (no certificate matching applied)
+	"certificate-matching": { "valid", "TA", "EE" },
+
+	// optional - default: False (message delivery deferred if STARTTLS unsupported or bad cert)
+	"log-only": boolean,
+
+	// optional
+	"min-tls-version": { "TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3" },
+
+	// optional, required if "certificate-matching" == "EE"
+	// list of TLSAs that describe allowed EE certificates
+	"ee-tlsa": [ TLSA ],
+
+	// optional, required if "certificate-matching" == "TA"
+	// list of TLSAs that describe allowd Trust Anchors
+	"ta-tlsa": [ TLSA ]
+}
+
+TLSA:
+{
+	// similar to RFC6698 "Selector Field" https://tools.ietf.org/html/rfc6698#section-2.1.1
+	"entity": { "pubkey", "certificate" },
+
+	// similar to RFC6698 "Matching Type Field" https://tools.ietf.org/html/rfc6698#section-2.1.3
+	"hash_alg": { "md5", "sha1", "sha256", "sha512" },
+
+	// similar to RFC6698 "Certificate Association Data Field" https://tools.ietf.org/html/rfc6698#section-2.1.4
+	// format: string of hexadecimal characters (ex: "01ab02cd...")
+	"data": "string"
+}
+
+Policy definitions:
+{
+  // Canonical URL https://eff.org/starttls-everywhere/config -- redirects to latest version
+
+  // "timestamp": 1401414363,  : also acceptable
+  "timestamp": "2014-06-06T14:30:16+00:00",
+
+  "author": "Electronic Frontier Foundation https://eff.org",
+
+  "expires": "2014-06-06T14:30:16+00:00",
+
+  "tls-policies": {
+    // match on mail domain (the part after @)
+    "domain1.tld": {
+      <Policy>,
+      "mx-hostnames": {
+        // match on next-hop
+        "sub1.domain1.tld": { <Policy> },
+        "subN.domain1.tld": { <Policy> }
+      }
+    },
+    "domainN.tld": { ... }
+  }
+}
