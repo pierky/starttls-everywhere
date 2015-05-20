@@ -10,3 +10,7 @@ except:
   class FileNotFoundError(Exception): pass
 
 class BuildUnchangedConfigFileError(Exception): pass
+class PolicyNotImplementedError(Exception): pass
+
+class CheckSTARTTLSSupportError(Exception): pass
+class SSLCertificatesError(Exception): pass
