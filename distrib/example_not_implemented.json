@@ -1,0 +1,45 @@
+{
+	"version": "0.1",
+	"timestamp": "2015-05-29T18:25:43",
+	"author": "Electronic Frontier Foundation https://eff.org",
+	"expires": "2016-05-29T18:25:43",
+
+	"global-policies": {
+		"EFF-TA": {
+			"comment": "Intermediate certificate validation through its public key (at least one of its SHA256 fingerprint or the full key)",
+			"certificate-matching": "TA",
+			"ta-tlsa": [
+				{
+					"entity": "pubkey",
+					"hash_alg": "sha256",
+					"data_format": "hex",
+					"data": "73ad0c5879669573ef09d10b42c4c047cab0c077f0bbcadaa5779dd2f29de826"
+				},
+				{
+					"entity": "pubkey",
+					"data_format": "b64",
+					"data": "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAnbEsf6aU5g8REhuvrr5Lq1mS7TiH7X6jcWtb2qvRyKbOS78ygeBp3zGnL75m1EjjQm45HwPgsmTyPfCRMdrpu8oQ9vIMpRYmphXG+7K7xuN7SWRRL8ko/yAKm6iECMq5OF6Tu6SOiiJlN4LXyt+KLH0wpGOF1Uw26MCNCKXrrhnamPbcqA77cRqwPsQapBXzhXItnxjT5UtPnREOtHgxZKYuWu0KuB2NI3uO11OsgtudkdFMtUW/BAnHbhFHZEBBTR9Yuzm1RpPYNtwJgukxy2FSaj+nRcRlJ+LiPuMMm89D9uuKSbDNIyF58lv/xpNXF0Qys7tdf2nBAOxp4mzHvRdkSOQXs5a9KVVo6LyorxBZeQBGuI3W85amp63IlQ588LJ6Nfu8m2Hrkp7UD8GkKj6OTBFHzUkl+krwQ0XBIzeJpn0uZP+XkEyVBrydHDF5bQuYgFhi8UnekuEy6huKy97DkD5cCItgJWy8f/goVEzaSO2LlgEwa3+bbCbIS92WRRkYC/qs3fGAYcuUc2NT4+lhuhlsgbYGMETaq18QgQ8iCYWhJGX4/+DIsjFn1kIHeBL/0wDdguQMXq5M4UFTC80edcLvJzSEY0AsZ5ww8XoRKLRjnRtLmivfCogHYdolF6ZDx3yHXxyaHJ3CRzX96z/D4pGXGHorfnax5LLhTLECAwEAAQ=="
+				}
+			],
+			"allowed-cert-names": [ ".eff.org" ]
+		}
+	},
+	"tls-policies": {
+		"example.org": {
+			"log-only": true
+		},
+		"eff.org": {
+			"comment": "Leaf certificate validation through fingerprint",
+			"min-tls-version": "TLSv1.2",
+			"certificate-matching": "EE",
+			"ee-tlsa": [
+				{
+					"entity": "certificate",
+					"hash_alg": "sha256",
+					"data_format": "hex",
+					"data": "8AF8C314FF7E343AE4BF0BF16C7CBE3856840D1172073ED9C7D8F002FD3081CF"
+				}
+			]
+		}
+	}
+}

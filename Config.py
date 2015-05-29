@@ -6,14 +6,18 @@ from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
 from Errors import TLDsListUnavailableError
 
 class STARTTLSEverywhereConfig(SafeConfigParser):
-  default_cfg_path = "/etc/starttls-everywhere.cfg"
+  default_cfg_path = "/etc/starttls-everywhere/starttls-everywhere.cfg"
 
   custom_defaults = {
     "postfix": {
       "cfg_dir": "/etc/postfix",
       "ca_path": "%(capath)s",
       "main_config_file": "main.cf",
-      "policy_defs_file": "starttls-everywhere"
+      "policy_defs_file": "starttls-everywhere",
+      "smtp_tls_policy_maps_type": "btree",
+      "postmap_path": "/usr/sbin/postmap",
+      "tafile_real_dir": "/var/spool/postfix/etc",
+      "tafile_dir": "/etc"
     }
   }
 
@@ -21,7 +25,7 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
     SafeConfigParser.__init__(self, {
       # general
 
-      "data_dir": "data",
+      "data_dir": "/var/lib/starttls-everywhere",
       "certs-observed": "%(data_dir)s/certs-observed",
       "openssl_path": "openssl",
       "capath": "/etc/ssl/certs/",
@@ -72,7 +76,7 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
 
     if tlds is None:
       if tlds_url == "":
-        raise TLDsListUnavailableError()
+        raise TLDsListUnavailableError("Missing tlds_url")
 
       from_cache = False
 

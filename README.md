@@ -2,7 +2,7 @@
 
 ## Authors
 
-Jacob Hoffman-Andrews <jsha@eff.org>, Peter Eckersley <pde@eff.org>
+Jacob Hoffman-Andrews <jsha@eff.org>, Peter Eckersley <pde@eff.org>, Pier Carlo Chiodi <pierky@pierky.com>
 
 ## Mailing List
 
@@ -47,7 +47,7 @@ Attacker has control of routers on the path between two MTAs of interest. Attack
 
 ## Alternatives
 
-Our goals can also be accomplished through use of [DNSSEC and DANE](http://tools.ietf.org/html/draft-ietf-dane-smtp-with-dane-10), which is certainly a more scalable solution. However, operators have been very slow to roll out DNSSEC supprt. We feel there is value in deploying an intermediate solution that does not rely on DNSSEC. This will improve the email security situation more quickly. It will also provide operational experience with authenticated SMTP over TLS that will make eventual rollout of a DANE solution easier.
+Our goals can also be accomplished through use of [DNSSEC and DANE](http://tools.ietf.org/html/draft-ietf-dane-smtp-with-dane), which is certainly a more scalable solution. However, operators have been very slow to roll out DNSSEC supprt. We feel there is value in deploying an intermediate solution that does not rely on DNSSEC. This will improve the email security situation more quickly. It will also provide operational experience with authenticated SMTP over TLS that will make eventual rollout of a DANE solution easier.
 
 ## Detailed design
 
@@ -55,102 +55,25 @@ Senders need to know which target hosts are known to support STARTTLS, and how t
 
   (a) a configuration file format to convey STARTTLS support for recipient domains,
 
-  (b) Python code (config-generator) to transform (a) into configuration files for popular MTAs., and
+  (b) Python code (config-generator) to transform (a) into configuration files for popular MTAs, and
 
-  (c) a method to create and securely distribute files of type (a) for major email domains that that agree to be included, plus any other domains that proactively request to be included.
+  (c) a method to create and securely distribute files of type (a) for major email domains that agree to be included, plus any other domains that proactively request to be included.
 
 ## File Format
 
-The basic file format will be JSON with comments (http://blog.getify.com/json-comments/). Example:
-
-    {
-      // Canonical URL https://eff.org/starttls-everywhere/config -- redirects to latest version
-      "timestamp": "2014-06-06T14:30:16+00:00",
-      // "timestamp": 1401414363,  : also acceptable
-      "author": "Electronic Frontier Foundation https://eff.org",
-      "expires": "2014-06-06T14:30:16+00:00",
-      "tls-policies": {
-        // These match on the MX domain.
-        "*.yahoodns.net": {
-           "require-valid-certificate": true,
-         }
-        "*.eff.org": {
-          "require-tls": true,
-          "min-tls-version": "TLSv1.1",
-          "enforce-mode": "enforce"
-          "accept-spki-hashes": [
-            "sha1/5R0zeLx7EWRxqw6HRlgCRxNLHDo=",
-            "sha1/YlrkMlC6C4SJRZSVyRvnvoJ+8eM="
-          ]
-        }
-        "*.google.com": {
-          "require-valid-certificate": true,
-          "min-tls-version": "TLSv1.1",
-          "enforce-mode": "log-only",
-          "error-notification": "https://google.com/post/reports/here"
-        },
-      }
-      // Since the MX lookup is not secure, we list valid responses for each
-      // address domain, to protect against DNS spoofing.
-      "acceptable-mxs": {
-        "yahoo.com": {
-          "accept-mx-hostnames": ["*.yahoodns.net"]
-        }
-        "gmail.com": {
-          "accept-mx-hostnames": ["*.google.com"]
-        }
-        "eff.org": {
-          "accept-mx-hostnames": ["*.eff.org"]
-        }
-      }
-    }
-
+Please refer to [POLICY_DEFS_FORMAT.md](POLICY_DEFS_FORMAT.md) for the format hereinafter described.
 
 A user of this file format may choose to accept multiple files. For instance, the EFF might provide an overall configuration covering major mail providers, and another organization might produce an overlay for mail providers in a specific country. If so, they override each other on a per-domain basis.
 
-The _timestamp_ field is an integer number of epoch seconds. When retrieving a fresh configuration file, config-generator should validate that the timestamp is greater than or equal to the version number of the file it already has.
-
-There is no inline signature field. The configuration file should be distributed with authentication using an offline signing key.
-
-Option 1: Plain JSON distributed with a signature using gpg --clearsign. Config-generator should validate the signature against a known GPG public key before extracting. The public key is part of the permanent system configuration, like the fetch URL.
-
-Option 2: Git is a revision control system built on top of an authenticated, history-preserving file system.  Let's use it as an authenticated, history preserving file system: valid versions of recipient policy files may be fetched and verified via signed git tags.  [Here's an example shell recipe to do this.](https://gist.github.com/jsha/6230206e89759cc6e00d)
-
-Config-generator should attempt to fetch the configuration file daily and transform it into MTA configs. If there is a retrieval failure, and the cached configuration file has an 'expires' time past the current date, an alert should be raised to the system operator and all existing configs from config-generator should be removed, reverting the MTA configuration to use opportunistic TLS for all domains.
-
-**address-domains**
-
-The _address-domains_ field maps from mail domains (the part of an address after the "@") onto a list of properties for that domain. Matching of mail domains is on an exact-match basis, not a subdomain basis. For instance, eff.org would be listed separately from lists.eff.org in the _address-domains_ section.
-
-Currently the only property defined for _address-domains_ is _accept-mx-hostnames_, a list. If an MX lookup for a listed address domain returns a hostname that is not a subdomain of one of the domains listed in the _accept-mx-hostnames_ property, the MTA should fail delivery or log an advisory failure, as appropriate. Matching of MX hostnames against the _accept-mx-hostnames_ list is on a subdomain basis. For instance, if an MX record for yahoo.com lists mta7.am0.yahoodns.net, and the _accept-mx-hostnames_ property for yahoo.com is ["yahoodns.net"], that should be considered a match. All domains listed in any _accept-mx-hostnames_ list must correspond to an exactly matching field in the _mx-domains_ config section.
-
-The _accept-mx-hostnames_ mechanism partially solves the problem of DNS MITM. It doesn't completely solve the problem, since an attacker might somehow control a different hostname under an acceptable domain, e.g. evil.yahoodns.net. But it strikes a balance between improving security and allowing mail operators to change configuration as needed. Some mail operators delegate their MX handling to a third-party provider (i.e. Google Apps for Your Domain). If those operators are included in STARTTLS Everywhere and wish to change providers, they will have to first send an update to their _accept-mx-hostnames_ to include their new provider.
-
-**mx-domains**
-
-The keys of this section are MX domains as described above for the _accept-mx-hostnames_ property. Each _mx-domain_ entry must be an exact match with an entry in one of the _accept-mx-hostnames_ lists provided. No _mx-domain_can be a subdomain of any other _mx-domain_in the configuration file. Fields in this section specify minimum security requirements that should be applied when connecting to any MX hostname that is a subdomain of the specified _mx-domain_.
-
-Implicitly each _mx-domain_ listed has a property _require-tls: true_. MX domains that do not support TLS will not be listed. The only required property is _enforce-mode_, which must be either _log-only_ or _enforce_. If _enforce-mode_ is _log-only_, the generated configs will not stop mail delivery on policy failures, but will produce logging information.
-
-If the _min-tls-version_ property is present, sending mail to domains under this policy should fail if the sending MTA cannot negotiate a TLS version equal to or greater than the listed version. Valid values are _TLSv1, TLSv1.1, and TLSv1.2._
-
-_Require-valid-certificate_defaults to false. If the _require-valid-certificate_ property is 'true' for a given _mx-domain_ the certificate presented must be valid for a hostname that is subdomain of the _mx-domain_. Validity means all of these must be true:
-
-1.  The CN or a DNS entry under subjectAltName matches an appropriate hostname.
-2.  The certificate is unexpired.
-3.  There is a valid chain from the certificate to a root certificate included in [Mozilla's trust store](https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/included/) (available as [Debian package ca-certificates](https://packages.debian.org/sid/ca-certificates)).
-
-The _accept-pinset_ field references an entry in the pinsets list, which has the same format and semantics as [Chrome's pinning list](https://src.chromium.org/chrome/trunk/src/net/http/transport_security_state_static.json). Most _mx-domain_s should specify a pinset that describes trust roots rather than leaf certificates, but both are possible. Pinning will only be added at the request of mail operators because it requires operators be careful when issuing new leaf certificates.
+The *version* field contains the version of the format used for the file. Every time that a new feature is introduced in the file format and it's not backward-compatible with the previous version (for example, it involves different behaviours from the default ones used if that feature would not be implemented) the major will be incremented by 1. MTAs config generator must reject files that have a major version greater than the one they have been released for.
 
 ## Pinning and hostname verification
 
-Like Chrome (and soon Firefox) we want to encourage pinning to a trusted root or intermediate rather than a leaf cert, to minimize spurious pinning failures when hosts rotate keys.
+Like Chrome (and soon Firefox) we want to encourage pinning to a trusted root or intermediate (`certificate-matching = "TA"`) rather than a leaf cert, to minimize spurious pinning failures when hosts rotate keys.
 
 The other option is to automatically pin leaf certs as observed in the wild.  This would be one solution to the hostname verification and self-signed certificate problem. However, it is a non-starter. Even if we expect mail operators to auto-update configuration on a daily basis, this approach cannot add new certs until they are observed in the wild. That means that any time an operator rotates keys on a mail server, there would be a significant window of time in which the new keys would be rejected.
 
-We do not attempt to solve the self-signed certificate problem. For mail hosts with self-signed certificates, we can require TLS but will not require validation of the certificates. Such hosts should be encouraged to upgrade to a CA-signed certificate that can be validated by senders.
-
-## Creating configuration
+## Creating policy definitions
 
 We have three options for creating the configuration file:
 
@@ -178,9 +101,13 @@ Config-generator should parse input JSON and produce output configs for various 
 
 Config-generator will be manually updated by mail operators.
 
+At this time only the Postfix MTA config-generator is implemented.
+
+Please refer to [INSTALLATION.md](INSTALLATION.md) and [USAGE.md](USAGE.md) for further details.
+
 ## Testing
 
-We will create a reproducible test configuration that can be run locally and exercises each of the major cases: Enforce mode vs log mode; Enforced TLS negotiation, enforced MX hostname match, and enforced valid certificates.
+We will create a reproducible test configuration that can be run locally and exercises each of the major cases: Enforce mode vs log mode; Enforced TLS negotiation and enforced valid certificates.
 
 Additionally, for ongoing monitoring of third-party deployments, we will create a canary mail domain that intentionally fails one of the tests but is included in the configuration file. For instance, starttls-canary.org would be listed in the configuration as requiring STARTTLS, but would not actually offer STARTTLS. Each time a mail operator commits to configuring STARTTLS Everywhere, we would request an account on their email domain from which to send automated daily email to starttls-canary.org. We should expect bounces. If such mail is successfully delivered to starttls-canary.org, that would indicate a configuration failure on the sending host, and we would manually notify the operator.
 

@@ -1,0 +1,34 @@
+{
+	"version": "0.1",
+	"timestamp": "2015-05-29T18:25:43",
+	"author": "Electronic Frontier Foundation https://eff.org",
+	"expires": "2016-05-29T18:25:43",
+
+	"global-policies": {
+		"Parent": {
+			"allowed-cert-names": [ ".example.org" ],
+			"min-tls-version": "TLSv1"
+		}
+	},
+	"tls-policies": {
+		"sub1.example.org": {
+			"comment": "Fully inherited from Parent",
+			"from-global": "Parent"
+		},
+		"sub2.example.org": {
+			"comment": "Add log-only = true",
+			"log-only": true,
+			"from-global": "Parent"
+		},
+		"sub3.example.org": {
+			"comment": "Change min-tls-version",
+			"min-tls-version": "TLSv1.2",
+			"from-global": "Parent"
+		},
+		"sub4.example.org": {
+			"from-global": "Parent",
+			"comment": "Remove min-tls-version",
+			"min-tls-version": null
+		}
+	}
+}
