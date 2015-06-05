@@ -1,6 +1,6 @@
 #!/usr/bin/env python
+from __future__ import division
 import argparse
-import collections
 import os
 import re
 import sys
@@ -11,11 +11,8 @@ import DefsParser
 from Config import Config
 from Errors import *
 
-TIME_FORMAT = "%b %d %H:%M:%S"
-
-ABBR_MONTHS = [datetime.date(2015,m,1).strftime("%b") for m in range(1,13)]
-
-STATUS_TAGS = [ "sent_ok", "sent_ko", "tried" ]
+#TODO: implement a status to match "log-only = true" results
+STATUS_TAGS = [ "sent_ok", "sent_ko", "attempted" ]
 
 class MTALogWatcher():
   def _prepare_re_timestamps_from_lines(self):
@@ -37,13 +34,18 @@ class MTALogWatcher():
       compiled_re = re.compile(re_str)
       self.re_status_map[re_str] = {}
       self.re_status_map[re_str]["compiled"] = compiled_re
-      self.re_status_map[re_str]["tags"] = \
-        self.status_map[re_str]["tags"]
-      if "mail_domain" in self.status_map[re_str]:
-        self.re_status_map[re_str]["mail_domain"] = \
-          self.status_map[re_str]["mail_domain"]
+      self.re_status_map[re_str]["status_tags"] = \
+        self.status_map[re_str]["status_tags"]
+      self.re_status_map[re_str]["mail_domain"] = \
+        self.status_map[re_str]["mail_domain"]
  
-  def __init__(self,logfilepath,incremental):
+  def __init__(self,logfilepath,incremental,policy_defs):
+    """
+    Logfile must exist and must be readable.
+    """
+
+    ABBR_MONTHS = [datetime.date(2015,m,1).strftime("%b") for m in range(1,13)]
+
     # Map between re and log timestamps strftime format.
     # Syntax:
     #   {
@@ -57,13 +59,25 @@ class MTALogWatcher():
     #       "strftime_fmt": "<strftime_fmt1>"
     #     }
     #   }
+    # May be integrated with more formats by child classes.
     self.timestamps_from_lines = {
-      # May 29 19:30:52
+      # format: MMM [D]D [h]h:[m]m:[s]s
+      #         May  4 01:14:24
       "^(" + "|".join(ABBR_MONTHS) + ")\s{1,2}"
       "(\d{1,2})\s{1,2}"
       "(\d{1,2}):"
       "(\d{1,2}):"
-      "(\d{1,2})\s": "%b %d %H:%M:%S"
+      "(\d{1,2})": "%b %d %H:%M:%S",
+
+      # format: YYYY/MM/DD hh:mm:ss
+      #         2015/05/29 19:34:21
+      "^(\d{4})/(\d{2})/(\d{2})\s"
+      "(\d{2}):(\d{2}):(\d{2})": "%Y/%m/%d %H:%M:%S",
+
+      # format: YYYY-MM-DD[T]hh:mm:ss
+      "^(\d{4})-(\d{2})-(\d{2})[\sT]"
+      "(\d{2}):(\d{2}):(\d{2})": "%Y-%m-%d %H:%M:%S",
+
     }
     self.re_timestamps_from_lines = None
       
@@ -71,7 +85,7 @@ class MTALogWatcher():
     # Syntax:
     #   {
     #     "<re1>": {
-    #       "tags": [ "status1", "status2", "statusN" ],
+    #       "status_tags": [ "status1", "status2", "statusN" ],
     #       "mail_domain": <group_index>
     #     }
     #   }
@@ -79,40 +93,47 @@ class MTALogWatcher():
     #   {
     #     "<re1>": {
     #       "compiled": "<compiled_re_obj>",
-    #       "tags": [ "status1", "status2", "statusN" ],
+    #       "status_tags": [ "status1", "status2", "statusN" ],
     #       "mail_domain": <group_index>
     #     }
     #   }
+    # <group_index> is the index of the regexp group that matches the
+    # mail domain for which the delivery attempt has been made.
+    #
+    # Must be filled by child classes.
     self.status_map = {}
     self.re_status_map = None
 
+    self.policy_defs = policy_defs
+
     self.logfilepath = logfilepath
+    self.cursorfile = None
 
     if self.logfilepath == "-":
       self.is_stdin = True
       self.incremental = False
-      self.cursorfile = None
     else:
       self.is_stdin = False
       self.incremental = incremental
+
+      if not os.path.isfile(self.logfilepath):
+        raise FileNotFoundError("Log file not found: %s" % self.logfilepath)
+      if not os.access(self.logfilepath, os.R_OK):
+        raise InsufficientPermissionError("Insufficient permissions to read "
+                                          "logfile %s" % self.logfilepath)
+
       data_dir = Config.get("general","data_dir")
-      self.cursorfile = os.path.join(data_dir,
-                                    "cur" + self.logfilepath.replace("/","-"))
 
-      if os.path.isfile(self.logfilepath):
-        if not os.access(self.logfilepath, os.R_OK):
-          raise InsufficientPermissionError("Insufficient permissions to read "
-                                            "logfile %s" % self.logfilepath)
-
-
-    if self.incremental:
       if not os.path.isdir(data_dir):
         raise FileNotFoundError("Working directory (data_dir) not found: %s" %
                                 data_dir)
-
       if not os.access(data_dir, os.W_OK):
         raise InsufficientPermissionError("Insufficient permissions to write "
-                                          "logfile cursor to %s" % data_dir)
+                                          "into working directory (data_dir): "
+                                          "%s" % data_dir)
+
+      logfile_inode = os.stat(self.logfilepath).st_ino
+      self.cursorfile = os.path.join(data_dir, str(logfile_inode) + ".cur")
 
   def remove_cursor(self):
     if self.cursorfile:
@@ -123,6 +144,24 @@ class MTALogWatcher():
         return "Cursor file does not exist"
     else:
       return "Cursor not defined"
+
+  def show_cursor(self):
+    if self.cursorfile:
+      j = json.dumps(self.read_cursor(),indent=2)
+      return "Cursor file: %s\n%s" % (self.cursorfile,j)
+    else:
+      return "No cursor specified"
+
+  def read_cursor(self):
+    cursor = {}
+    if os.path.isfile(self.cursorfile):
+      with open(self.cursorfile,"r") as cursor_file:
+        cursor = json.loads(cursor_file.read())
+    return cursor
+  
+  def write_cursor(self,cursor):
+    with open(self.cursorfile,"w") as cursor_file:
+      cursor_file.write(json.dumps(cursor))
 
   def get_ts_from_line(self,line):
     """
@@ -166,9 +205,7 @@ class MTALogWatcher():
       # If current mtime == old mtime, return an empty list.
       curr_mtime = int(os.path.getmtime(self.logfilepath))
 
-      if os.path.isfile(self.cursorfile):
-        with open(self.cursorfile,"r") as cursor_file:
-          cursor = json.loads(cursor_file.read())
+      cursor = self.read_cursor()
 
       if "mtime" in cursor:
         if curr_mtime <= cursor["mtime"]:
@@ -181,21 +218,23 @@ class MTALogWatcher():
 
       # Number of lines check.
       # If current number of lines > last known number of lines AND
-      # first line's timestamp is equal to last known first line's TS
-      # then return new lines only.
+      # first line's timestamp is equal to the last known first line's
+      # timestamp then return new lines only.
       curr_lines_cnt = len(lines)
       curr_first_line_ts = None
 
       if curr_lines_cnt > 0:
+        #TODO: allow first line's null timestamp or not? Look for a valid
+        # timestamp on first x lines?
         curr_first_line_ts = self.get_ts_from_line(lines[0])
 
         if "lines_cnt" in cursor:
           if curr_lines_cnt > cursor["lines_cnt"]:
-            if curr_first_line_ts and "first_line_ts" in cursor:
+            if "first_line_ts" in cursor:
               if curr_first_line_ts == cursor["first_line_ts"]:
                 res = lines[cursor["lines_cnt"]:]
       
-      # If res is still empty, set it to the whole lines
+      # If res is still empty, set it to the whole lines.
       if res == []:
         res = lines
 
@@ -203,22 +242,42 @@ class MTALogWatcher():
       cursor["lines_cnt"] = curr_lines_cnt
       cursor["first_line_ts"] = curr_first_line_ts
 
-      with open(self.cursorfile,"w") as cursor_file:
-        cursor_file.write(json.dumps(cursor))
+      self.write_cursor(cursor)
 
     return res
 
   def analyze_lines(self,lines):
     """
     Return the summary of delivery attempts status.
+
+    {
+      "matched_lines": [ "<line1>", "<line2>", "<lineN>" ],
+      "unmatched_lines": [ "<line1>", "<line2>", "<lineN>" ],
+      "domains": {
+        "<mail_domain1>": {
+          "<status_tag1>": <int>,
+          "<status_tagN>": <int>
+        },
+        "<mail_domainN>": {...}
+      },
+      "<status_tag1>": {
+        "domains": {
+          "<mail_domain1>": <int>,
+          "<mail_domainN>": <int>
+        },
+        "cnt": <int>
+      },
+      "<status_tagN>": {...}
+    }
     """
-    self._prepare_re_status_map()
 
     res = {
       "matched_lines": [],
       "unmatched_lines": [],
       "domains": {}
     }
+
+    self._prepare_re_status_map()
 
     for line in lines:
       matched = False
@@ -228,24 +287,26 @@ class MTALogWatcher():
         if match:
           matched = True
 
-          if "mail_domain" in self.re_status_map[re_str]:
-            mail_domain_idx = self.re_status_map[re_str]["mail_domain"]
-            mail_domain = match.group(mail_domain_idx)
+          mail_domain_idx = self.re_status_map[re_str]["mail_domain"]
+          mail_domain = match.group(mail_domain_idx)
+
+          # Increment counters only if no policy definitions
+          # has been provided or if the domain is one of those
+          # included in the policy.
+          if not self.policy_defs or \
+            mail_domain in self.policy_defs.tls_policies.keys():
 
             if not mail_domain in res["domains"]:
               res["domains"][mail_domain] = {}
-          else:
-            mail_domain = None
 
-          for status in self.re_status_map[re_str]["tags"]:
-            if not status in res:
-              res[status] = {}
-              res[status]["cnt"] = 0
-              res[status]["domains"] = {}
+            for status in self.re_status_map[re_str]["status_tags"]:
+              if not status in res:
+                res[status] = {}
+                res[status]["cnt"] = 0
+                res[status]["domains"] = {}
 
-            res[status]["cnt"] = res[status]["cnt"] + 1
+              res[status]["cnt"] = res[status]["cnt"] + 1
 
-            if mail_domain:
               if not mail_domain in res[status]["domains"]:
                 res[status]["domains"][mail_domain] = 0
               res[status]["domains"][mail_domain] = \
@@ -265,16 +326,16 @@ class MTALogWatcher():
 
 class PostfixLogWatcher(MTALogWatcher):
 
-  def __init__(self,logfilepath,incremental):
-    MTALogWatcher.__init__(self,logfilepath,incremental)
+  def __init__(self,logfilepath,incremental,policy_defs):
+    MTALogWatcher.__init__(self,logfilepath,incremental,policy_defs)
 
     self.status_map = {
       "to=<[^@]+@([^>]*)>.* status=deferred.*(TLS|certificate)": {
-        "tags": [ "sent_ko", "tried" ],
+        "status_tags": [ "sent_ko", "attempted" ],
         "mail_domain": 1
       },
       "to=<[^@]+@([^>]*)>.* status=sent": {
-        "tags": [ "sent_ok", "tried" ],
+        "status_tags": [ "sent_ok", "attempted" ],
         "mail_domain": 1
       }
     }
@@ -282,7 +343,24 @@ class PostfixLogWatcher(MTALogWatcher):
 if __name__ == "__main__":
   def main():
     parser = argparse.ArgumentParser(
-      description="""MTA log watcher""")
+      description="""MTA log watcher""",
+      formatter_class=argparse.RawDescriptionHelpFormatter,
+      epilog="""
+Incremental reading is not available when logfile = "-" (stdin).
+
+If a policy definitions file is supplied (-p argument) the output counters are
+incremented only for logfile lines that match one of the mail domains covered
+by the policy.
+
+Output type:
+- matched-lines: only the lines that have been analysed will be shown.
+- unmatched-lines: only the lines that have not been included in the analysis
+  will be shown; this option can be useful to evaluate the effectiveness of 
+  log parsing patterns and to display log lines that have been ignored.
+- domains: all the domains that have been analysed are shown, with counters
+  of successful and failed delivery attempts.
+- warnings: like for 'domains', but only mail domains with a failure rate that
+  is higher than the configured threshold are shown.""")
 
     parser.add_argument("-c", "--cfg", default=Config.default_cfg_path,
                         help="general configuration file path", metavar="file",
@@ -301,27 +379,59 @@ if __name__ == "__main__":
     parser.add_argument("--remove-cursor", action="store_true",
                         dest="remove_cursor",
                         help="remove the file containing the cursor used for "
-                             "incremental reading")
+                             "incrementally reading the logfile")
 
-    parser.add_argument("-o", "--output", default="summary", dest="output",
-                        choices=["summary", "matched_lines",
-                                 "unmatched_lines"], metavar="output",
-                        help="requested output")
+    parser.add_argument("--show-cursor", action="store_true",
+                        dest="show_cursor",
+                        help="show the file containing the cursor used for "
+                             "incrementally reading the logfile")
 
-    #parser.add_argument("-p", "--policy-defs",
-    #                    help="JSON policy definitions file",
-    #                    dest="policy_defs",
-    #                    metavar="policy_defs.json")
+    output_choices = ["warnings", "domains", "summary",
+                              "matched-lines", "unmatched-lines"]
+
+    parser.add_argument("-o", default="warnings", dest="output",
+                        choices=output_choices,
+                        metavar="output-type",
+                        help="requested output: " + 
+                        " | ".join("'" + c + "'" for c in output_choices))
+
+    parser.add_argument("-p",
+                        help="JSON policy definitions file",
+                        dest="policy_defs",
+                        metavar="policy_defs.json")
 
     args = parser.parse_args()
 
     Config.read(args.cfg_path)
 
-    #if args.policy_defs:
-    #  c = DefsParser.Defs(args.policy_def)
+    # failure_threshold = failure_threshold_percent / 100
+    #   1 = 100%
+    #   0.001 = 0.1%
+    failure_threshold = Config.get("general","failure_threshold_percent")
+    try:
+      failure_threshold = float(failure_threshold)/100
+    except:
+      raise TypeError("Invalid failure threshold: %s" % failure_threshold)
+
+    if failure_threshold < 0 or failure_threshold > 1:
+      raise ValueError("Failure threshold must be between 0 and 100: %s" %
+                        failure_threshold)
+
+    if args.logfile == "-":
+      if args.incremental:
+        print("Can't use incremental reading on stdin.")
+        return
+      if args.remove_cursor or args.show_cursor:
+        print("Can't manage cursors for stdin.")
+        return
+
+    if args.policy_defs:
+      policy_defs = DefsParser.Defs(args.policy_defs)
+    else:
+      policy_defs = None
 
     if args.mta_flavor == "Postfix":
-      logwatcher = PostfixLogWatcher(args.logfile,args.incremental)
+      logwatcher = PostfixLogWatcher(args.logfile,args.incremental,policy_defs)
     else:
       print("Unexpected MTA flavor: {}".format(args.mta_flavor))
       return
@@ -329,24 +439,77 @@ if __name__ == "__main__":
     if args.remove_cursor:
       print(logwatcher.remove_cursor())
       return
+    if args.show_cursor:
+      print(logwatcher.show_cursor())
+      return
 
     res = logwatcher.analyze_lines( logwatcher.get_newlines() )
 
     if args.output == "summary":
+      print("Displaying the summary accordingly to logfile parsing results")
+      print("")
+
       for s in STATUS_TAGS:
         if s in res:
           print("%s:" % s)
           print(json.dumps(res[s],indent=2))
       print("Domains:")
       print(json.dumps(res["domains"],indent=2))
-    elif args.output == "matched_lines":
+
+    elif args.output == "matched-lines":
+      print("Displaying the logfile's lines that matched configured patterns")
+      print("")
+
       for l in res["matched_lines"]:
         print(l.rstrip("\n"))
-    elif args.output == "unmatched_lines":
+
+    elif args.output == "unmatched-lines":
+      print("Displaying the logfile's lines that did not match "
+            "configured patterns")
+      print("")
+
       for l in res["unmatched_lines"]:
         print(l.rstrip("\n"))
-#    for l in res["unmatched_lines"]:
-#      print(l)
+
+    elif args.output in [ "domains", "warnings" ]:
+      print("Displaying successful/failed delivery attempts for %s" %
+            ("every domain" if args.output == "domains" else "domains "
+            "with an high failure rate (%s%%)" % (failure_threshold*100)))
+      print("")
+
+      for domainname in res["domains"]:
+        domain = res["domains"][domainname]
+        
+        if not "attempted" in domain:
+          continue
+
+        #TODO: implement results for "log-only = true" status.
+        if "sent_ko" in domain and domain["attempted"] > 0:
+          failure_rate = domain["sent_ko"] / domain["attempted"]
+        else:
+          failure_rate = None
+
+        if args.output == "domains" or \
+          ( args.output == "warnings" and failure_rate >= failure_threshold ):
+          succeeded = domain["sent_ok"] if "sent_ok" in domain else "none"
+          failed = domain["sent_ko"] if "sent_ko" in domain else "none"
+
+          s = "{d}: {t} delivery attempts, {s} succeeded, {f} failed"
+          if failure_rate:
+            s = s + ", {r:.2%} failure rate"
+            if failure_rate >= failure_threshold:
+              s = s + " - WARNING"
+
+          print(s.format(d=domainname, r=failure_rate,
+                         t=domain["attempted"], s=succeeded,
+                         f=failed))
+
+    #TODO: consider implementing a feature to automatically remove
+    # policy enforcement in case of problems (it would require an
+    # additional MTAConfigGenerator method to force MTA to reload
+    # its configuration).
+    #TODO: implement notifications in case of problems (syslog logging,
+    # sending mail, run external program).
 
   try:
     main()

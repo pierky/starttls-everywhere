@@ -32,6 +32,7 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
       "tlds_update_interval": "86400",
       "tlds_url": "https://data.iana.org/TLD/tlds-alpha-by-domain.txt",
       "diff_cmd": "diff -y {new} {old}",
+      "failure_threshold_percent": "0.1"
       })
 
   def get(self,section,option,default=None):
