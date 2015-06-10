@@ -269,11 +269,17 @@ If the *min-tls-version* property is present, sending mail to domains under this
 
 ## MTA compatibility
 
-| MTA          | certificate-matching                | log-only | min-tls-version | allowed-cert-names |
-|:-------------|:------------------------------------|:--------:|:---------------:|:-------------------|
-|Postfix       | none, **valid**, **TA** (1), **EE** | no       | yes             | FQDN and "."-domain|
+| MTA          | certificate-matching                    | log-only | min-tls-version | allowed-cert-names  |
+|:-------------|:----------------------------------------|:--------:|:---------------:|:--------------------|
+|Postfix 2.3   | none, **valid**                         | no       | no              | FQDN and "."-domain |
+|Postfix 2.5   | none, **valid**, **EE** (1)             | no       | no              | FQDN and "."-domain |
+|Postfix 2.6   | none, **valid**, **EE** (1)             | no       | yes             | FQDN and "."-domain |
+|Postfix 2.9   | none, **valid**, **EE** (2)             | no       | yes             | FQDN and "."-domain |
+|Postfix 2.11  | none, **valid**, **EE**, **TA** (2)     | no       | yes             | FQDN and "."-domain |
 
-1) for TA-based validation only full entities are supported (*hash_alg* not present).
+1. Certificate fingerprint verification only (no public-key fingerprint verification).
+2. Certificate fingerprint verification + public-key fingerprint verification; Postfix 2.9.0–2.9.5 computed the public key fingerprint incorrectly: to use public-key fingerprints, upgrade to Postfix 2.9.6 or later.
+3. Only full entities (*hash_alg* not present) are supported for TA-based verification.
 
 ## Policy definitions expiration and validation
 
