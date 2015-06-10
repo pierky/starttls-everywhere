@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 
 def bin_to_hexstr(b):
   """Output: ab12cd34..."""
@@ -42,4 +43,13 @@ def tls_protocols_higher_than(first):
     if p == first or len(res) > 0:
       res.append(p)
   return res
+
+def mkdirp(path):
+  try:
+    os.makedirs(path)
+  except OSError as exc:
+    if exc.errno == errno.EEXIST and os.path.isdir(path):
+      pass
+    else:
+      raise
 

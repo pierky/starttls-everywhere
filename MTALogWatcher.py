@@ -10,9 +10,10 @@ import json
 import DefsParser
 from Config import Config
 from Errors import *
+from Utils import mkdirp
 
 #TODO: implement a status to match "log-only = true" results
-STATUS_TAGS = [ "sent_ok", "sent_ko", "attempted" ]
+MANDATORY_STATUS_TAGS = [ "sent_ok", "sent_ko", "attempted" ]
 
 class MTALogWatcher():
   def _prepare_re_timestamps_from_lines(self):
@@ -103,6 +104,10 @@ class MTALogWatcher():
     # Must be filled by child classes.
     self.status_map = {}
     self.re_status_map = None
+
+    self.status_tags = []
+    for s in MANDATORY_STATUS_TAGS:
+      self.status_tags.append(s)
 
     self.policy_defs = policy_defs
 
@@ -404,6 +409,24 @@ Output type:
 
     Config.read(args.cfg_path)
 
+    if args.output == "warnings":
+      # Reporting facilities initialization
+
+      reports_dir = Config.get("general","logwatcher_reports_dir")
+      if not os.path.isdir(reports_dir):
+        mkdirp(reports_dir)
+        #raise FileNotFoundError("Logwatcher's reports directory "
+        #                        "(logwatcher_reports_dir) not found: %s" %
+        #                        reports_dir)
+      if not os.access(reports_dir, os.W_OK):
+        raise InsufficientPermissionError("Insufficient permissions to write "
+                                          "into logwatcher's reports "
+                                          "directory "
+                                          "(logwatcher_reports_dir): %s" %
+                                          reports_dir)
+
+      Config.get_logger()
+
     # failure_threshold = failure_threshold_percent / 100
     #   1 = 100%
     #   0.001 = 0.1%
@@ -443,13 +466,13 @@ Output type:
       print(logwatcher.show_cursor())
       return
 
-    res = logwatcher.analyze_lines( logwatcher.get_newlines() )
+    res = logwatcher.analyze_lines(logwatcher.get_newlines())
 
     if args.output == "summary":
       print("Displaying the summary accordingly to logfile parsing results")
       print("")
 
-      for s in STATUS_TAGS:
+      for s in logwatcher.status_tags:
         if s in res:
           print("%s:" % s)
           print(json.dumps(res[s],indent=2))
@@ -473,9 +496,12 @@ Output type:
 
     elif args.output in [ "domains", "warnings" ]:
       print("Displaying successful/failed delivery attempts for %s" %
-            ("every domain" if args.output == "domains" else "domains "
-            "with an high failure rate (%s%%)" % (failure_threshold*100)))
+            ("every domain" if args.output == "domains" else
+             "domains with an high failure rate (%s%%)" %
+             (failure_threshold*100)))
       print("")
+
+      warning_domains = []
 
       for domainname in res["domains"]:
         domain = res["domains"][domainname]
@@ -499,20 +525,55 @@ Output type:
             s = s + ", {r:.2%} failure rate"
             if failure_rate >= failure_threshold:
               s = s + " - WARNING"
+              warning_domains.append(domainname)
 
           print(s.format(d=domainname, r=failure_rate,
                          t=domain["attempted"], s=succeeded,
                          f=failed))
 
+      if args.output == "warnings" and len(warning_domains) > 0:
+        report_format= Config.get("general","logwatcher_reports_fmt")
+        report_filename = datetime.datetime.now().strftime(report_format)
+        report_file = "%s/%s" % (reports_dir,report_filename)
+        with open(report_file, "w") as r:
+          r.write("domainname,attempts,ko,ok\n")
+          for domainname in warning_domains:
+            r.write("{domainname},{attempted},{sent_ko},{sent_ok}\n".format(
+                    domainname=domainname,
+                    attempted=res["domains"][domainname]["attempted"],
+                    sent_ko=res["domains"][domainname]["sent_ko"],
+                    sent_ok=res["domains"][domainname]["sent_ok"]))
+
+        notification_t = "Delivery errors found for {domains} for a " + \
+                         "total of {fail} failures over {tot} total " + \
+                         "attempts. More details on {report_file}"
+
+        if len(warning_domains) > 3:
+          notification_domains = ", ".join(warning_domains[:3]) + \
+                                 "and " + str(len(warning_domains)-3) + \
+                                 " more domains"
+        else:
+          notification_domains = ", ".join(warning_domains)
+
+        fail = 0
+        tot = 0
+        for domainname in warning_domains:
+          fail = fail + res["domains"][domainname]["sent_ko"]
+          tot = tot + res["domains"][domainname]["attempted"]
+
+        notification = notification_t.format(domains=notification_domains,
+                                             fail=fail,
+                                             tot=tot,
+                                             report_file=report_file)
+
+        Config.get_logger().error(notification)
+
     #TODO: consider implementing a feature to automatically remove
     # policy enforcement in case of problems (it would require an
     # additional MTAConfigGenerator method to force MTA to reload
     # its configuration).
-    #TODO: implement notifications in case of problems (syslog logging,
-    # sending mail, run external program).
 
   try:
     main()
   except Exception as e:
-    raise
     print(e)

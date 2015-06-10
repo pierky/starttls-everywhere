@@ -4,7 +4,7 @@ The STARTTLS Everywhere project offers the following tools:
 
 * **DefsParser.py**, to parse and validate definitions files and to display resultant policy for a given mail domain.
 * **MTAConfigGenerator.py**, which translates policies into MTA-specific directives and fixes (upon user's confirmation) MTA general configuration in order to allow STARTTLS enforcing.
-* **MTALogWatcher.py** (PARTIALLY IMPLEMENTED), to analyze MTAs' logs and report how many delivery failures are due to STARTTLS enforcing policies.
+* **MTALogWatcher.py**, to analyze MTAs' logs and report how many delivery failures are due to STARTTLS enforcing policies.
 
 ## Configuration
 
@@ -137,7 +137,7 @@ It can be run to parse whole log files or to use an incremental reading method t
 
 Multiple output types can be chosen:
 
-* the **-o warnings** allows to display mail domains that have been found to exceed the configured delivery failure threshold:
+* the **-o warnings** (default) allows to display mail domains that have been found to exceed the configured delivery failure threshold:
 
   ```
   $ sudo ./MTALogWatcher.py -m Postfix /var/log/mail.log -o warnings
@@ -146,6 +146,9 @@ Multiple output types can be chosen:
   bad-starttls.example.com: 143 delivery attempts, 56 succeeded, 87 failed, 60.84% failure rate - WARNING
   ```
 
-* the **-o domains** is similar to the **warnings** output type but shows results for every analysed domain;
+  It also causes MTALogWatcher to log delivery errors due to STARTTLS-Everywhere policies and (optionally) to notify them via email (log_smtp_* configuration parameters).
+  A report for mail domains that encountered delivery issues is also saved for further analysis (logwatcher_reports_* configuration parameters).
+
+* the **-o domains** is similar to the **warnings** output type but shows results for every analysed domain and avoid errors logging;
 
 * two of them (**-o matched-lines** and **-o unmatched-lines**) are mostly useful for debug purposes to evaluate the efficacy of the regular expressions used to match relevant log lines, by printing the log lines that have been taken into account for analysis and those that have been ignored.

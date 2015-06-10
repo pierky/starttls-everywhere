@@ -4,6 +4,10 @@
 
 Jacob Hoffman-Andrews <jsha@eff.org>, Peter Eckersley <pde@eff.org>, Pier Carlo Chiodi <pierky@pierky.com>
 
+## Disclaimer
+
+**This is a DEVELOPER PREVIEW intended for developers and testers only.**
+
 ## Mailing List
 
 starttls-everywhere@eff.org, https://lists.eff.org/mailman/listinfo/starttls-everywhere
