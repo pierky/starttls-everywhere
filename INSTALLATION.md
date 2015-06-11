@@ -1,5 +1,20 @@
 # STARTTLS Everywhere - Installation
 
+## Requirements
+
+STARTTLS-Everywhere requires M2Crypto (https://pypi.python.org/pypi/M2Crypto).
+On Debian/Ubuntu the **python-m2crypto** package can be used:
+
+```
+sudo apt-get install python-m2crypto
+```
+
+Otherwise it will be built by pip requirements processing; in this case other dependencies must be satisfied:
+
+```
+sudo apt-get install swig libssl-dev python-dev
+```
+
 ## Installation and configuration
 
 ```
