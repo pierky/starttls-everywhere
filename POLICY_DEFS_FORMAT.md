@@ -275,7 +275,7 @@ If the *min-tls-version* property is present, sending mail to domains under this
 |Postfix 2.5   | none, **valid**, **EE** (1)             | no       | no              | FQDN and "."-domain |
 |Postfix 2.6   | none, **valid**, **EE** (1)             | no       | yes             | FQDN and "."-domain |
 |Postfix 2.9   | none, **valid**, **EE** (2)             | no       | yes             | FQDN and "."-domain |
-|Postfix 2.11  | none, **valid**, **EE**, **TA** (2)     | no       | yes             | FQDN and "."-domain |
+|Postfix 2.11  | none, **valid**, **EE**, **TA** (3)     | no       | yes             | FQDN and "."-domain |
 
 1. Certificate fingerprint verification only (no public-key fingerprint verification).
 2. Certificate fingerprint verification + public-key fingerprint verification; Postfix 2.9.0–2.9.5 computed the public key fingerprint incorrectly: to use public-key fingerprints, upgrade to Postfix 2.9.6 or later.
