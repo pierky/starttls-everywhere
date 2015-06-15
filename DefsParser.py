@@ -301,8 +301,10 @@ class Defs:
 
     return res
 
-  def __init__(self, cfg_file_name = "config.json"):
+  def __init__(self, policy_file = "config.json"):
     """
+    policy_file can be a string (policy file path) or a file object.
+
     Raise:
       ValueError
       TypeError
@@ -316,7 +318,14 @@ class Defs:
     self.timestamp = None
     self.expires = None
 
-    f = open(cfg_file_name)
+    if type(policy_file) is str:
+      f = open(policy_file)
+    elif type(policy_file) is file:
+      f = policy_file
+    else:
+      raise TypeError("Invalid policy_file: %s - must be string or file." %
+                      type(policy_file))
+
     try:
       self.cfg = json.loads(f.read())
     except:
@@ -438,8 +447,10 @@ if __name__ == "__main__":
                       help="print the resultant JSON policy, optionally "
                       "limited to domain", dest="print_json")
 
-  parser.add_argument("policy_def", help="JSON policy definitions file",
-                      metavar="policy_defs.json")
+  parser.add_argument("policy_def", help="""JSON policy definitions file; """
+                      """"-" to read from stdin""",
+                      metavar="policy_defs.json",
+                      type=argparse.FileType("r"))
 
   args = parser.parse_args()
 
