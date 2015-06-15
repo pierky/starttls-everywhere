@@ -9,6 +9,7 @@ from M2Crypto import X509,BIO,RSA
 
 from Config import Config
 from Utils import *
+from Errors import *
 
 TIMESTAMP_FORMAT="%Y-%m-%dT%H:%M:%S%Z"
 MAX_VERSION="1.x"
@@ -442,9 +443,9 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
 
-  Config.read(args.cfg_path)
-
   try:
+    Config.read(args.cfg_path)
+
     c = Defs(args.policy_def)
     print("Validation OK")
     if args.print_json:
