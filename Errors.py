@@ -23,10 +23,7 @@ class InsufficientPermissionError(STARTTLSEverywhereCustomError):
     return self.message + "\n" \
                    "Please try re-running as root."
 
-try:
-  FileNotFoundError
-except:
-  class FileNotFoundError(STARTTLSEverywhereCustomError): pass
+class MissingFileError(STARTTLSEverywhereCustomError): pass
 
 class BuildUnchangedConfigFileError(STARTTLSEverywhereCustomError): pass
 

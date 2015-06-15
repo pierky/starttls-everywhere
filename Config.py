@@ -72,7 +72,7 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
 
     data_dir = Config.get("general","data_dir")
     if not os.path.isdir(data_dir):
-      raise FileNotFoundError("Working directory (data_dir) not found: %s" %
+      raise MissingFileError("Working directory (data_dir) not found: %s" %
                               data_dir)
     if not os.access(data_dir, os.W_OK):
       raise InsufficientPermissionError("Insufficient permissions to write "

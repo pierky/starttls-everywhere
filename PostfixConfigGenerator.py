@@ -40,7 +40,7 @@ class PostfixConfigGenerator(MTAConfigGenerator):
 
     if self.fixup:
       if not os.path.isfile(self.postfix_cf_file):
-        raise FileNotFoundError("Postfix main configuration file "
+        raise MissingFileError("Postfix main configuration file "
                                 "not found: {}".format(self.postfix_cf_file))
 
       if not os.access(self.postfix_cf_file, os.W_OK):
@@ -62,7 +62,7 @@ class PostfixConfigGenerator(MTAConfigGenerator):
 
     self.postmap_path = Config.get("postfix","postmap_path")
     if not os.path.isfile(self.postmap_path):
-      raise FileNotFoundError("Postfix's postmap program not found at %s; "
+      raise MissingFileError("Postfix's postmap program not found at %s; "
                               "Change the postmap_path parameter in the "
                               "STARTTLS-Everywhere postfix configuration." %
                               self.postmap_path)
@@ -151,7 +151,7 @@ class PostfixConfigGenerator(MTAConfigGenerator):
     tafile_dir = Config.get("postfix","tafile_dir")
 
     if not os.path.isdir(tafile_real_dir):
-      raise FileNotFoundError("The directory where Trust Anchor files have "
+      raise MissingFileError("The directory where Trust Anchor files have "
                               "to be stored (tafile_real_dir) does not "
                               "exist: %s" % tafile_real_dir)
 

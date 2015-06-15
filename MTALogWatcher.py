@@ -122,7 +122,7 @@ class MTALogWatcher():
       self.incremental = incremental
 
       if not os.path.isfile(self.logfilepath):
-        raise FileNotFoundError("Log file not found: %s" % self.logfilepath)
+        raise MissingFileError("Log file not found: %s" % self.logfilepath)
       if not os.access(self.logfilepath, os.R_OK):
         raise InsufficientPermissionError("Insufficient permissions to read "
                                           "logfile %s" % self.logfilepath)
@@ -130,7 +130,7 @@ class MTALogWatcher():
       data_dir = Config.get("general","data_dir")
 
       if not os.path.isdir(data_dir):
-        raise FileNotFoundError("Working directory (data_dir) not found: %s" %
+        raise MissingFileError("Working directory (data_dir) not found: %s" %
                                 data_dir)
       if not os.access(data_dir, os.W_OK):
         raise InsufficientPermissionError("Insufficient permissions to write "
@@ -193,7 +193,7 @@ class MTALogWatcher():
       return sys.stdin.read().split("\n")
 
     if not os.path.isfile(self.logfilepath):
-      raise FileNotFoundError("Log file not found: %s" % self.logfilepath)
+      raise MissingFileError("Log file not found: %s" % self.logfilepath)
     elif not os.access(self.logfilepath, os.R_OK):
       raise InsufficientPermissionError("Insufficient permissions to read "
                                         "logfile %s" % self.logfilepath)
@@ -415,7 +415,7 @@ Output type:
       reports_dir = Config.get("general","logwatcher_reports_dir")
       if not os.path.isdir(reports_dir):
         mkdirp(reports_dir)
-        #raise FileNotFoundError("Logwatcher's reports directory "
+        #raise MissingFileError("Logwatcher's reports directory "
         #                        "(logwatcher_reports_dir) not found: %s" %
         #                        reports_dir)
       if not os.access(reports_dir, os.W_OK):
