@@ -459,7 +459,5 @@ if __name__ == "__main__":
           print("The selected domain %s has not been found." % domain)
   except (ValueError, TypeError) as e:
     print("Validation failure: %s" % str(e))
-  except:
-    raise
-
-
+  except STARTTLSEverywhereCustomError as e:
+    print(e)

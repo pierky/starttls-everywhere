@@ -293,7 +293,7 @@ class MTALogWatcher():
           matched = True
 
           mail_domain_idx = self.re_status_map[re_str]["mail_domain"]
-          mail_domain = match.group(mail_domain_idx)
+          mail_domain = match.group(mail_domain_idx).lower()
 
           # Increment counters only if no policy definitions
           # has been provided or if the domain is one of those
@@ -541,8 +541,8 @@ Output type:
             r.write("{domainname},{attempted},{sent_ko},{sent_ok}\n".format(
                     domainname=domainname,
                     attempted=res["domains"][domainname]["attempted"],
-                    sent_ko=res["domains"][domainname]["sent_ko"],
-                    sent_ok=res["domains"][domainname]["sent_ok"]))
+                    sent_ko=res["domains"][domainname].get("sent_ko",0),
+                    sent_ok=res["domains"][domainname].get("sent_ok",0)))
 
         notification_t = "Delivery errors found for {domains} for a " + \
                          "total of {fail} failures over {tot} total " + \
@@ -575,5 +575,5 @@ Output type:
 
   try:
     main()
-  except Exception as e:
+  except (STARTTLSEverywhereCustomError,ValueError,TypeError) as e:
     print(e)

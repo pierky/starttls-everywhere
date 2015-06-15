@@ -1,6 +1,8 @@
-class TLDsListUnavailableError(Exception): pass
+class STARTTLSEverywhereCustomError(Exception): pass
 
-class ExistingConfigError(Exception):
+class TLDsListUnavailableError(STARTTLSEverywhereCustomError): pass
+
+class ExistingConfigError(STARTTLSEverywhereCustomError):
   """
   When an ExistingConfigError exception is raised
   the MTA config generator shows a notice and suggests
@@ -11,7 +13,7 @@ class ExistingConfigError(Exception):
                    "Please consider using the --fix argument to show a new " \
                    "proposal configuration."
 
-class InsufficientPermissionError(Exception):
+class InsufficientPermissionError(STARTTLSEverywhereCustomError):
   """
   When an InsufficientPermissionError exception is raised
   the MTA config generator suggests the user to run the
@@ -24,11 +26,11 @@ class InsufficientPermissionError(Exception):
 try:
   FileNotFoundError
 except:
-  class FileNotFoundError(Exception): pass
+  class FileNotFoundError(STARTTLSEverywhereCustomError): pass
 
-class BuildUnchangedConfigFileError(Exception): pass
+class BuildUnchangedConfigFileError(STARTTLSEverywhereCustomError): pass
 
-class PolicyNotImplementedError(Exception):
+class PolicyNotImplementedError(STARTTLSEverywhereCustomError):
   """
   Policies that can't be built because of a 
   PolicyNotImplementedError exception can be ignored
@@ -39,7 +41,7 @@ class PolicyNotImplementedError(Exception):
     allowed_ignore_list.
   """
   def __init__(self, message, ignore_flag=None):
-    Exception.__init__(self, message)
+    STARTTLSEverywhereCustomError.__init__(self, message)
     self.ignore_flag = ignore_flag
 
   def __str__(self):
@@ -51,11 +53,11 @@ class PolicyNotImplementedError(Exception):
     else:
       return self.message
 
-class PolicyBuildingError(Exception):
+class PolicyBuildingError(STARTTLSEverywhereCustomError):
   """
   Unrecoverable errors.
   """
   pass
 
-class CheckSTARTTLSSupportError(Exception): pass
-class SSLCertificatesError(Exception): pass
+class CheckSTARTTLSSupportError(STARTTLSEverywhereCustomError): pass
+class SSLCertificatesError(STARTTLSEverywhereCustomError): pass
