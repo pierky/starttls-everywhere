@@ -56,7 +56,7 @@ class Defs:
 
     return True
 
-  def _read_tlsa(self,name,lst):
+  def _read_tlsas(self,name,lst):
     """
     Read and validate the list of TLSA.
 
@@ -66,6 +66,13 @@ class Defs:
     res = []
 
     for tlsa in lst:
+      new_tlsa = self._read_tlsa(name,tlsa)
+      res.append(new_tlsa)
+
+    return res
+
+  def _read_tlsa(self,name,tlsa):
+    try:
       new_tlsa = {}
       for attr, val in tlsa.items():
         if type(val) not in [ str, unicode ]:
@@ -164,9 +171,11 @@ class Defs:
             raise ValueError("The public key in %s's TLSA is not in a valid "
                              "format." % name)
 
-      res.append(new_tlsa)
+    except:
+      print("Error parsing TLSA for %s: %s" % (name,tlsa))
+      raise
 
-    return res
+    return new_tlsa
 
   def _read_policy(self,name,dic,is_global=False,curr=None):
     """
@@ -236,7 +245,7 @@ class Defs:
         if type(val) != list:
           raise TypeError("Invalid %s type for %s: must be a list" %
                           (attr,name))
-        res[attr] = self._read_tlsa(name,val)
+        res[attr] = self._read_tlsas(name,val)
 
       elif attr == "allowed-cert-names":
         if type(val) != list:
