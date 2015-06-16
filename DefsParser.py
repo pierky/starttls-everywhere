@@ -32,7 +32,7 @@ def parse_version(v):
   return [int(x) for x in re.sub(r'(\.0+)*$','', v).split(".")]
 
 class Defs:
-  legal = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
+  legal = "abcdefghijklmnopqrstuvwxyz0123456789.-"
   known_tlds = []
 
   def looks_like_a_domain(self,s):
@@ -43,7 +43,6 @@ class Defs:
     """
     try:
       domain = s.lower()
-      assert domain[0].islower()
       assert all([c in self.legal for c in domain])
     except:
       return False
