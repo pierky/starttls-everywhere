@@ -30,7 +30,7 @@ class STARTTLSEverywhereConfig(SafeConfigParser):
       # general
 
       "data_dir": "/var/lib/starttls-everywhere",
-      "certs-observed": "%(data_dir)s/certs-observed",
+      "guessstarttlspolicy_cache_dir": "%(data_dir)s/guessstarttlspolicy_cache",
       "openssl_path": "openssl",
       "capath": "/etc/ssl/certs/",
       "tlds_update_interval": "86400",

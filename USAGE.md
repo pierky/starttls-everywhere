@@ -5,6 +5,7 @@ The STARTTLS Everywhere project offers the following tools:
 * **DefsParser.py**, to parse and validate definitions files and to display resultant policy for a given mail domain.
 * **MTAConfigGenerator.py**, which translates policies into MTA-specific directives and fixes (upon user's confirmation) MTA general configuration in order to allow STARTTLS enforcing.
 * **MTALogWatcher.py**, to analyze MTAs' logs and report how many delivery failures are due to STARTTLS enforcing policies.
+* **GuessSTARTTLSPolicies.py**, to *guess* a policy for recipient domains on the basis of a set of attributes shared among MX hosts (WARNING: read its disclaimer - use it at your own risk).
 
 ## Configuration
 
@@ -152,3 +153,28 @@ Multiple output types can be chosen:
 * the **-o domains** is similar to the **warnings** output type but shows results for every analysed domain and avoid errors logging;
 
 * two of them (**-o matched-lines** and **-o unmatched-lines**) are mostly useful for debug purposes to evaluate the efficacy of the regular expressions used to match relevant log lines, by printing the log lines that have been taken into account for analysis and those that have been ignored.
+
+## GuessSTARTTLSPolicies
+
+This script consumes a list of recipient mail domains and, for each one of them, it builds a TLS policy on the basis of the response of its MX hostnames.
+A set of attributes that are common to all the MX hosts is built, including TLS version, Trust Anchors, End Entity certificates, their public keys and names (CN + SANs).
+Decisions are made on the basis of the set of common attributes, with the following priority list:
+* Trust Anchors
+* EE certificates' public key
+* EE certificates (exact matching)
+* any valid certificate
+
+>WARNING: the policy herein built is based on a set of common
+>features found among the current layout and configuration of the MX hostnames
+>associated to input mail domains. There is no warranty that the current
+>settings will be kept by mail servers' owners in the future nor that these
+>settings are the correct ones that really identify the recipient domain's mail
+>servers. A bad policy could result in messages delivery failures.
+
+**USE POLICIES BUILT BY THIS SCRIPT AT YOUR OWN RISK.**
+
+For more details:
+
+```
+$ ./GuessSTARTTLSPolicies.py -h
+```

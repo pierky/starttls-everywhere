@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import os
-from errno import EEXIST
+from errno import EEXIST, EACCES
+import re
+from Errors import InsufficientPermissionError
 
 def bin_to_hexstr(b):
   """Output: ab12cd34..."""
@@ -51,6 +53,16 @@ def mkdirp(path):
   except OSError as exc:
     if exc.errno == EEXIST and os.path.isdir(path):
       pass
+    elif exc.errno == EACCES:
+      raise InsufficientPermissionError("Permission denied while creating %s" %
+                                        path)
     else:
       raise
 
+def extract_pem_data(pem):
+  match = re.search("-----BEGIN .+-----\s([a-zA-Z0-9\+\/\s\=]+)\s-----END ",
+                    pem,re.MULTILINE)
+  if match:
+    return match.group(1)
+  else:
+    return None
