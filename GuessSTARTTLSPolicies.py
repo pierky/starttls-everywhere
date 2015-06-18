@@ -44,30 +44,6 @@ def extract_names(x509_cert):
     alt_names = []
   return set(common_names + alt_names)
 
-def extract_ski_aki(x509_cert):
-  """Return (SKI, AKI keyid, AKI dirname, AKI serial)."""
-
-  ski = None
-  aki = None
-  aki_keyid = None
-  aki_dirname = None
-  aki_serial = None
-  try:
-    ski = x509_cert.get_ext("subjectKeyIdentifier").get_value().strip()
-    aki = x509_cert.get_ext("authorityKeyIdentifier").get_value().strip()
-
-    for aki_part in aki.split("\n"):
-      if aki_part.lower().startswith("keyid:"):
-        _, _, aki_keyid = aki_part.partition(":")
-      elif aki_part.startswith("DirName:"):
-        _, _, aki_dirname = aki_part.partition(":")
-      elif aki_part.startswith("serial:"):
-        _, _, aki_serial = aki_part.partition(":")
-  except:
-    pass
-
-  return (ski,aki_keyid,aki_dirname,aki_serial)
-
 def get_certs_info(openssl_output):
   """
   cert_info defined as:
@@ -88,7 +64,6 @@ def get_certs_info(openssl_output):
         "sha512": "data"
       }
 
-      "self_signed": boolean
     }
 
   Return:
@@ -100,9 +75,7 @@ def get_certs_info(openssl_output):
         <cert_info>,
 
         "verify_ok": boolean,
-        "verify_res": "data",
-
-        "self_issued": boolean
+        "verify_res": "data"
       },
 
       // optional
@@ -153,7 +126,6 @@ def get_certs_info(openssl_output):
     dest["pubkey_pem"] = extract_pem_data(\
       cert.get_pubkey().get_rsa().as_pem(cipher=None))
     dest["pubkey_fingerprints"] = {}
-#    dest["self_signed"] = cert.verify(cert.get_pubkey()) == 1
 
     pubkey = "".join([l for l in dest["pubkey_pem"].split("\n") 
                       if len(l) > 0 and l[0] != "-"])
@@ -177,29 +149,15 @@ def get_certs_info(openssl_output):
       dgst.update(pubkey)
       dest["pubkey_fingerprints"][alg] = dgst.hexdigest()
 
-  verify_result = re.search("Verify return code:\s+(\d+)\s+\((.+)\)",openssl_output)
+  verify_result = re.search("Verify return code:\s+(\d+)\s+\((.+)\)",
+                            openssl_output)
   if verify_result:
     res["ee"]["verify_ok"] = verify_result.group(1) == "0"
     res["ee"]["verify_res"] = verify_result.group(2)
   else:
     res["ee"]["verify_ok"] = False
-    res["ee"]["verify_res"] = "missing openssl verify result"
+    res["ee"]["verify_res"] = "can't find openssl verify return code"
 
-#  # self issued EE cert?
-#  ski, aki_keyid, aki_dirname, aki_serial = extract_ski_aki(EE)
-#
-#  if ski and aki_keyid and ski.lower() == aki_keyid.lower():
-#    dest["self_issued"] = True
-#  #TODO: implement checking AKI dirname/serial with cert 
-#  #      subject DN/serial
-#  #      Does X509 cert .get_serial_number() return an int?
-#  #      Shouldn't sn be a 20 bytes field?
-#  #elif aki_dirname and aki_serial:
-#  elif EE.get_issuer().as_text() == EE.get_subject().as_text():
-#      dest["self_issued"] = True
-#  else:
-#    res["ee"]["self_issued"] = False
-  
   return res
 
 def supports_starttls(mx_host):
@@ -535,15 +493,6 @@ def main():
 
     for mx_hostname in domain_data["mx-hostnames"]:
       mx_host = domain_data["mx-hostnames"][mx_hostname]
-
-#      if mx_host["certificates"]["ee"]["self_signed"]:
-#        verbose("  %s: not valid (self-signed)" % mx_hostname)
-#        common["any-invalid-EE-cert"] = True
-#      elif mx_host["certificates"]["ee"]["self_issued"]:
-#        verbose("  %s: not valid (self-issued)" % mx_hostname)
-#        common["any-invalid-EE-cert"] = True
-#      else:
-#        verbose("  %s: valid" % mx_hostname)
 
       if not mx_host["certificates"]["ee"]["verify_ok"]:
         verbose("  %s: not valid (%s)" %
